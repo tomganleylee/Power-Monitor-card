@@ -64,9 +64,9 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       ...config,
       update_interval: config.update_interval ?? 2000,
       show_statistics: config.show_statistics ?? false,  // Changed default to false
-      visualization_mode: config.visualization_mode ?? 'particles',
-      min_height: config.min_height ?? 600,  // Increased from 400 to 600
-      max_height: config.max_height ?? 1000  // Increased from 800 to 1000
+      visualization_mode: config.visualization_mode ?? 'both',  // Changed to 'both' to show Sankey lines + particles
+      min_height: config.min_height ?? 400,  // No artificial minimum
+      max_height: config.max_height ?? 9999  // Effectively unlimited - let card grow with content
     };
 
     this.isLoading = false;
@@ -199,11 +199,10 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     }
 
     const minHeight = this.config.min_height ?? 400;
-    const maxHeight = this.config.max_height ?? 800;
 
     return html`
       <div class="card-content">
-        <div class="canvas-container" style="min-height: ${minHeight}px; max-height: ${maxHeight}px;">
+        <div class="canvas-container" style="min-height: ${minHeight}px; height: auto;">
           <canvas></canvas>
         </div>
         ${this.config.show_statistics ? this.renderStatistics() : ''}
@@ -1183,7 +1182,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
