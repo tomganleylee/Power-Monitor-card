@@ -819,13 +819,17 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const solarNode = this.sourceNodes.find(n => n.type === 'solar');
     const batteryNode = this.sourceNodes.find(n => n.type === 'battery');
     const gridNode = this.sourceNodes.find(n => n.type === 'grid');
-    const totalLoadNode = this.consumptionNodes.find(n => n.id === 'total_load');
+
+    // Calculate total load from all visible consumption nodes (excluding total_load if it exists)
+    const totalLoad = this.consumptionNodes
+      .filter(n => n.id !== 'total_load')
+      .reduce((sum, node) => sum + node.powerWatts, 0);
 
     const energyFlows = calculateEnergyFlows({
       solar: solarNode?.powerWatts ?? 0,
       battery: batteryNode?.powerWatts ?? 0,
       grid: gridNode?.powerWatts ?? 0,
-      totalLoad: totalLoadNode?.powerWatts ?? 0
+      totalLoad: totalLoad
     });
 
     const vizMode = this.config.visualization_mode ?? 'particles';
@@ -992,10 +996,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       this.particleSystem.render(ctx);
     }
 
-    // Calculate total load from all consumption nodes
-    const totalLoad = this.consumptionNodes.reduce((sum, node) => sum + node.powerWatts, 0);
-
-    // Render hub node with total load
+    // Render hub node with total load (calculated earlier)
     this.nodeRenderer.renderHubNode(hubX, hubY, 30, totalLoad);
 
     // Render source nodes
@@ -1182,7 +1183,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
