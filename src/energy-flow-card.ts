@@ -1182,4 +1182,11 @@ declare global {
   documentationURL: 'https://github.com/yourusername/energy-flow-card'
 });
 
-console.log('Energy Flow Card v1.0.0 loaded successfully');
+// Version logging with styling for easy identification
+const VERSION = '1.0.1';
+console.log(
+  '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
+  'color: #4caf50; font-weight: bold; font-size: 14px;',
+  'color: #64b5f6; font-weight: bold; font-size: 14px; background: #1e3250; padding: 2px 8px; border-radius: 3px;',
+  'color: #999; font-size: 12px;'
+);
