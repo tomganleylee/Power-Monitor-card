@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-dist/
+# dist/ - DO NOT IGNORE: HACS needs this folder
 build/
 
 # Logs
