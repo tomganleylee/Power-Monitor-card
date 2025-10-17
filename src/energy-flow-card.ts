@@ -845,8 +845,14 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Debug: Log energy flows once every 5 seconds
     const now = Date.now();
     if (!this._lastDebugLog || now - this._lastDebugLog > 5000) {
-      console.log('Energy Flows:', energyFlows);
-      console.log('Total Load:', totalLoad);
+      console.log('=== ENERGY FLOW DEBUG ===');
+      console.log('Input Values:', {
+        solar: solarNode?.powerWatts ?? 0,
+        battery: batteryNode?.powerWatts ?? 0,
+        grid: gridNode?.powerWatts ?? 0,
+        totalLoad: totalLoad
+      });
+      console.log('Calculated Flows:', energyFlows);
       this._lastDebugLog = now;
     }
 
