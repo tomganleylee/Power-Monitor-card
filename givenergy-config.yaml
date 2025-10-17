@@ -1,0 +1,31 @@
+# Energy Flow Card - GivEnergy Configuration
+type: custom:energy-flow-card
+
+# GivEnergy main sources
+entities:
+  solar: sensor.givtcp_ce2122g101_pv_power          # Solar PV power
+  battery: sensor.givtcp_ce2122g101_invertor_power  # Battery power (positive=discharge, negative=charge)
+  battery_soc: sensor.givtcp_ce2122g101_soc         # Battery state of charge (%)
+  battery_capacity: 16400                            # Battery capacity in Wh
+  grid: sensor.givtcp_ce2122g101_grid_power         # Grid power (positive=import, negative=export)
+
+# You can add individual device monitoring here
+# Replace these with your actual device power sensors
+devices:
+  - id: total_load
+    entity_id: sensor.givtcp_ce2122g101_load_power
+    name: Total Load
+    icon: 🏠
+    show_when_off: true
+
+# Display settings
+show_statistics: true
+update_interval: 2000  # 2 seconds
+min_height: 400
+max_height: 700
+
+# Theme colors (optional - matches GivEnergy style)
+theme:
+  solar_color: '#ffa500'    # Orange
+  battery_color: '#4caf50'  # Green
+  grid_color: '#2196f3'     # Blue

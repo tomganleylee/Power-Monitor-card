@@ -1,0 +1,38 @@
+{
+  "name": "energy-flow-card",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Home Assistant custom card for visualizing real-time energy flow between sources and consumption devices",
+  "main": "dist/energy-flow-card.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "lint": "eslint src/**/*.ts"
+  },
+  "keywords": [
+    "home-assistant",
+    "custom-card",
+    "energy",
+    "solar",
+    "battery",
+    "visualization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "d3-force": "^3.0.0",
+    "lit": "^3.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.7",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^0.4.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/d3-force": "^3.0.10",
+    "eslint": "^8.0.0",
+    "rollup": "^4.0.0",
+    "rollup-plugin-filesize": "^10.0.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.0.0"
+  }
+}

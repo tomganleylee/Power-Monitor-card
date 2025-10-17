@@ -1,0 +1,109 @@
+# Energy Flow Card - Example Configuration
+# Copy this to your Lovelace dashboard after installing the card
+
+# First, add the card as a resource in your Lovelace configuration:
+# Settings > Dashboards > Resources > Add Resource
+# URL: /local/energy-flow-card.js
+# Type: JavaScript Module
+
+# Then add this card configuration to your dashboard:
+
+type: custom:energy-flow-card
+
+# Main energy sources (optional, configure what you have)
+entities:
+  solar: sensor.solar_power              # Solar power sensor (in watts)
+  battery: sensor.battery_power          # Battery power sensor (positive = discharge, negative = charge)
+  battery_soc: sensor.battery_soc        # Battery state of charge (0-100%)
+  battery_capacity: sensor.battery_capacity  # Battery capacity in Wh (optional)
+  grid: sensor.grid_power                # Grid power (positive = import, negative = export)
+
+# Individual devices to monitor
+devices:
+  - id: living_room_ac
+    entity_id: sensor.living_room_ac_power
+    name: Living Room AC
+    icon: ❄️
+    category: hvac
+    show_when_off: true
+
+  - id: kitchen_oven
+    entity_id: sensor.kitchen_oven_power
+    name: Kitchen Oven
+    icon: 🔥
+    category: kitchen
+
+  - id: washing_machine
+    entity_id: sensor.washing_machine_power
+    name: Washing Machine
+    icon: 🌀
+    category: appliances
+
+  - id: ev_charger
+    entity_id: sensor.ev_charger_power
+    name: EV Charger
+    icon: 🚗
+    category: ev
+    show_when_off: true
+
+  - id: office_pc
+    entity_id: sensor.office_pc_power
+    name: Office PC
+    icon: 💻
+    category: electronics
+
+  - id: lights
+    entity_id: sensor.lights_total_power
+    name: Lights
+    icon: 💡
+    category: lighting
+
+# Device categories (optional, for grouping)
+categories:
+  - id: hvac
+    name: HVAC
+    icon: ❄️
+    color: '#2196f3'
+
+  - id: kitchen
+    name: Kitchen
+    icon: 🍳
+    color: '#ff9800'
+
+  - id: appliances
+    name: Appliances
+    icon: 🏠
+    color: '#4caf50'
+
+  - id: ev
+    name: EV Charging
+    icon: 🚗
+    color: '#9c27b0'
+
+  - id: electronics
+    name: Electronics
+    icon: 💻
+    color: '#00bcd4'
+
+  - id: lighting
+    name: Lighting
+    icon: 💡
+    color: '#ffc107'
+
+# Warning thresholds
+warnings:
+  battery_low: 20        # Warn when battery below 20%
+  grid_import: 5000      # Warn when importing more than 5000W
+
+# Display options
+show_statistics: true    # Show statistics panel below visualization
+update_interval: 2000    # Update interval in milliseconds (default: 2000ms = 2 sec)
+min_height: 400          # Minimum canvas height in pixels
+max_height: 800          # Maximum canvas height in pixels
+
+# Theme customization (optional)
+theme:
+  solar_color: '#ffa500'    # Orange for solar
+  battery_color: '#4caf50'  # Green for battery
+  grid_color: '#2196f3'     # Blue for grid
+  particle_color: '#ffffff' # White particles

@@ -1,0 +1,30 @@
+# Minimal Energy Flow Card Configuration for Testing
+# Use this if you don't have all sensors configured yet
+
+type: custom:energy-flow-card
+
+# Minimal configuration - replace with your actual sensor entity IDs
+entities:
+  solar: sensor.solar_power      # Replace with your solar power sensor
+  grid: sensor.grid_power        # Replace with your grid power sensor
+
+# Just a few test devices
+devices:
+  - id: test_device_1
+    entity_id: sensor.device_1_power    # Replace with actual sensor
+    name: Test Device 1
+    icon: 💡
+    show_when_off: true
+
+  - id: test_device_2
+    entity_id: sensor.device_2_power    # Replace with actual sensor
+    name: Test Device 2
+    icon: 🔌
+
+# Basic settings
+show_statistics: true
+update_interval: 2000
+min_height: 400
+
+# Note: The card will work even if sensors are unavailable,
+# it will just show them as inactive/stale with warning indicators
