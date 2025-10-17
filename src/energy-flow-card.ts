@@ -46,6 +46,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   private resizeObserver?: ResizeObserver;
   private updateTimer?: number;
   private lastFrameTime: number = 0;
+  private _lastDebugLog: number = 0;
 
   /**
    * Set the card configuration from Lovelace UI
@@ -811,6 +812,15 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Render version number in top-left corner
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('v1.0.3', 10, 10);
+    ctx.restore();
+
     // Get hub position
     const hubX = this.canvas.width / 2;
     const hubY = this.canvas.height / 2;
@@ -831,6 +841,14 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       grid: gridNode?.powerWatts ?? 0,
       totalLoad: totalLoad
     });
+
+    // Debug: Log energy flows once every 5 seconds
+    const now = Date.now();
+    if (!this._lastDebugLog || now - this._lastDebugLog > 5000) {
+      console.log('Energy Flows:', energyFlows);
+      console.log('Total Load:', totalLoad);
+      this._lastDebugLog = now;
+    }
 
     const vizMode = this.config.visualization_mode ?? 'particles';
 
