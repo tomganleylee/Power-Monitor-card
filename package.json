@@ -1,6 +1,6 @@
 {
   "name": "energy-flow-card",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "description": "Home Assistant custom card for visualizing real-time energy flow between sources and consumption devices",
   "main": "dist/energy-flow-card.js",
