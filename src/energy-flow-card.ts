@@ -63,10 +63,10 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     this.config = {
       ...config,
       update_interval: config.update_interval ?? 2000,
-      show_statistics: config.show_statistics ?? true,
+      show_statistics: config.show_statistics ?? false,  // Changed default to false
       visualization_mode: config.visualization_mode ?? 'particles',
-      min_height: config.min_height ?? 400,
-      max_height: config.max_height ?? 800
+      min_height: config.min_height ?? 600,  // Increased from 400 to 600
+      max_height: config.max_height ?? 1000  // Increased from 800 to 1000
     };
 
     this.isLoading = false;
@@ -993,8 +993,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       this.particleSystem.render(ctx);
     }
 
-    // Render hub node
-    this.nodeRenderer.renderHubNode(hubX, hubY, 30);
+    // Calculate total load from all consumption nodes
+    const totalLoad = this.consumptionNodes.reduce((sum, node) => sum + node.powerWatts, 0);
+
+    // Render hub node with total load
+    this.nodeRenderer.renderHubNode(hubX, hubY, 30, totalLoad);
 
     // Render source nodes
     const batterySOC = this.config.entities?.battery_soc

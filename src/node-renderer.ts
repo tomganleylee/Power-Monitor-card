@@ -485,8 +485,9 @@ export class NodeRenderer {
    * @param x Hub X position
    * @param y Hub Y position
    * @param radius Hub radius
+   * @param totalLoad Total power consumption in watts (optional)
    */
-  public renderHubNode(x: number, y: number, radius: number = 30): void {
+  public renderHubNode(x: number, y: number, radius: number = 30, totalLoad?: number): void {
     const ctx = this.ctx;
 
     ctx.save();
@@ -527,6 +528,22 @@ export class NodeRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('🏠', x, y);
+    ctx.shadowBlur = 0;
+
+    // Draw total load power below hub if provided
+    if (totalLoad !== undefined && totalLoad > 0) {
+      const formattedPower = formatPower(totalLoad);
+      const powerText = formatDisplay(formattedPower);
+
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(powerText, x, y + radius + 12);
+      ctx.shadowBlur = 0;
+    }
 
     ctx.restore();
   }
