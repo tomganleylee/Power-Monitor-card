@@ -570,11 +570,10 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       totalVisibleItems++; // Count the category/device itself
 
       if (isCategory && !isCollapsed && node.children) {
-        // Count visible children
-        totalVisibleItems += node.children.filter(c => c.isVisible).length;
-        // Count remainder if exists
-        if (node.calculatedRemainder && node.calculatedRemainder > 10) {
-          totalVisibleItems++;
+        // Only add ONE extra row for all horizontal children
+        const hasVisibleChildren = node.children.some(c => c.isVisible);
+        if (hasVisibleChildren) {
+          totalVisibleItems++; // One row for all horizontal children
         }
       }
     }
@@ -592,12 +591,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
 
     // Use calculated spacing for both categories and children
     const categorySpacing = calculatedSpacing;
-    const childSpacing = calculatedSpacing * 0.9;  // Slightly tighter for children
+    const childRowSpacing = calculatedSpacing;  // Full spacing for horizontal child row
 
     // Single column layout - zigzag between right and far-right
     const rightX = canvasWidth * 0.75;  // Closer position (75% from left)
     const farRightX = canvasWidth * 0.90;  // Farther position (90% from left)
-    const childIndent = canvasWidth * 0.05;  // Indent child nodes
     const startY = topMargin;  // Start from top with margin
 
     let currentY = startY;
@@ -616,22 +614,28 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         currentY += categorySpacing;
         visibleIndex++;
 
-        // Show children if expanded
+        // Show children if expanded - HORIZONTAL LAYOUT
         if (!isCollapsed && node.children) {
-          for (const child of node.children) {
-            if (child.isVisible) {
-              // Children indented to the RIGHT of parent
-              child.x = node.x + childIndent;
-              child.y = currentY;
-              currentY += childSpacing;
-              visibleIndex++;
-            }
-          }
+          const visibleChildren = node.children.filter(c => c.isVisible);
 
-          // Show remainder if exists
-          if (node.calculatedRemainder && node.calculatedRemainder > 10) {
-            // Remainder is displayed as part of category rendering
-            currentY += childSpacing;
+          if (visibleChildren.length > 0) {
+            // Calculate horizontal spacing for children
+            const childRadius = 30;  // Standard child node radius
+            const childHorizontalSpacing = childRadius * 2.5;  // Space between children horizontally
+            const totalChildWidth = visibleChildren.length * childHorizontalSpacing;
+
+            // Start children centered below parent
+            const childStartX = node.x - (totalChildWidth / 2) + (childHorizontalSpacing / 2);
+            const childY = currentY;  // All children on same horizontal line
+
+            // Position each child horizontally
+            visibleChildren.forEach((child, index) => {
+              child.x = childStartX + (index * childHorizontalSpacing);
+              child.y = childY;
+            });
+
+            // Move to next category row after horizontal children
+            currentY += childRowSpacing;
             visibleIndex++;
           }
         }
@@ -863,7 +867,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.14', 10, 10);
+    ctx.fillText('v1.0.15', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -909,7 +913,10 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         grid: gridNode?.powerWatts ?? 0,
         totalLoad: totalLoad
       });
-      console.log('Calculated Flows:', energyFlows);
+      console.log('Calculated Flows:');
+      energyFlows.forEach(flow => {
+        console.log(`  ${flow.from} → ${flow.to}: ${Math.round(flow.powerWatts)}W (${flow.color})`);
+      });
       this._lastDebugLog = now;
     }
 
@@ -1139,12 +1146,16 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
               }
             }
 
-            // Render remainder node if exists
+            // Render remainder node if exists (positioned at end of horizontal child row)
             if (device.calculatedRemainder && device.calculatedRemainder > 10) {
-              const childIndent = this.canvas.width * 0.05;
+              const lastChild = device.children[device.children.length - 1];
+              const childRadius = 30;
+              const childHorizontalSpacing = childRadius * 2.5;
+
+              // Position remainder to the right of last child
               this.nodeRenderer.renderRemainderNode(
-                device.x + childIndent,
-                device.children[device.children.length - 1]?.y + 70 || device.y + 70,
+                lastChild ? lastChild.x + childHorizontalSpacing : device.x + 60,
+                lastChild ? lastChild.y : device.y + 80,
                 device.calculatedRemainder
               );
             }
@@ -1267,7 +1278,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.14';
+const VERSION = '1.0.15';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
