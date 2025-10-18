@@ -376,29 +376,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const canvasHeight = this.canvas?.height ?? 500;
     const canvasWidth = this.canvas?.width ?? 800;
 
-    // Solar node - TOP
-    if (this.config.entities?.solar) {
-      const solarPower = this.sensorManager?.getPowerValue(this.config.entities.solar) ?? 0;
-      const sensorState = this.sensorManager?.getSensorState(this.config.entities.solar);
-
-      nodes.push({
-        type: 'solar',
-        entityId: this.config.entities.solar,
-        powerWatts: solarPower,
-        isActive: solarPower > 10,
-        isStale: sensorState?.isStale ?? false,
-        lastUpdated: sensorState?.lastUpdated ?? now,
-        displayValue: String(Math.round(solarPower)),
-        displayUnit: 'W',
-        color: this.config.theme?.solar_color ?? '#ffa500',
-        icon: '☀️',
-        x: canvasWidth * 0.22,  // 22% from left
-        y: canvasHeight * 0.20,  // Top (20% from top)
-        radius: 50  // Large
-      });
-    }
-
-    // Grid node - LEFT
+    // Grid node - LEFT (far left position)
     if (this.config.entities?.grid) {
       const gridPower = this.sensorManager?.getPowerValue(this.config.entities.grid) ?? 0;
       const sensorState = this.sensorManager?.getSensorState(this.config.entities.grid);
@@ -415,13 +393,35 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.grid_color ?? '#f44336',
         icon: flowDirection === 'export' ? '⚡⬆' : flowDirection === 'import' ? '⚡⬇' : '⚡',
-        x: canvasWidth * 0.15,  // 15% from left (farthest left)
-        y: canvasHeight * 0.55,  // Middle
+        x: canvasWidth * 0.10,  // 10% from left (farthest left)
+        y: canvasHeight * 0.50,  // Middle
         radius: 45  // Medium
       });
     }
 
-    // Battery node - BOTTOM
+    // Solar node - TOP-MIDDLE (between Grid and Hub)
+    if (this.config.entities?.solar) {
+      const solarPower = this.sensorManager?.getPowerValue(this.config.entities.solar) ?? 0;
+      const sensorState = this.sensorManager?.getSensorState(this.config.entities.solar);
+
+      nodes.push({
+        type: 'solar',
+        entityId: this.config.entities.solar,
+        powerWatts: solarPower,
+        isActive: solarPower > 10,
+        isStale: sensorState?.isStale ?? false,
+        lastUpdated: sensorState?.lastUpdated ?? now,
+        displayValue: String(Math.round(solarPower)),
+        displayUnit: 'W',
+        color: this.config.theme?.solar_color ?? '#ffa500',
+        icon: '☀️',
+        x: canvasWidth * 0.30,  // 30% from left (between Grid and Hub)
+        y: canvasHeight * 0.20,  // Top (20% from top)
+        radius: 50  // Large
+      });
+    }
+
+    // Battery node - BOTTOM-MIDDLE (between Grid and Hub)
     if (this.config.entities?.battery) {
       const batteryPower = this.sensorManager?.getPowerValue(this.config.entities.battery) ?? 0;
       const sensorState = this.sensorManager?.getSensorState(this.config.entities.battery);
@@ -438,8 +438,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.battery_color ?? '#4caf50',
         icon: flowDirection === 'charging' ? '🔋⬆' : flowDirection === 'discharging' ? '🔋⬇' : '🔋',
-        x: canvasWidth * 0.22,  // 22% from left
-        y: canvasHeight * 0.80,  // Bottom (80% from top)
+        x: canvasWidth * 0.30,  // 30% from left (between Grid and Hub)
+        y: canvasHeight * 0.70,  // Bottom-middle (70% from top)
         radius: 45  // Medium
       });
     }
@@ -863,7 +863,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.13', 10, 10);
+    ctx.fillText('v1.0.14', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -999,13 +999,13 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
 
     // Particle system (for 'particles' or 'both' modes)
     if ((vizMode === 'particles' || vizMode === 'both') && this.particleSystem) {
-      // Create hub node for particle spawning
+      // Create hub node for particle spawning - larger size
       const hubNode: any = {
         type: 'hub',
         entityId: 'hub',
         x: hubX,
         y: hubY,
-        radius: 30
+        radius: 50
       };
 
       // Spawn particles for energy flows between sources and to hub
@@ -1080,8 +1080,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       this.particleSystem.render(ctx);
     }
 
-    // Render hub node with total load (calculated earlier)
-    this.nodeRenderer.renderHubNode(hubX, hubY, 30, totalLoad);
+    // Render hub node with total load (calculated earlier) - larger size
+    this.nodeRenderer.renderHubNode(hubX, hubY, 50, totalLoad);
 
     // Render source nodes
     const batterySOC = this.config.entities?.battery_soc
@@ -1267,7 +1267,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.13';
+const VERSION = '1.0.14';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
