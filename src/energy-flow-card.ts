@@ -620,8 +620,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         if (!isCollapsed && node.children) {
           for (const child of node.children) {
             if (child.isVisible) {
-              // Children stay in parent's column, slightly indented
-              child.x = node.x - childIndent;
+              // Children indented to the RIGHT of parent
+              child.x = node.x + childIndent;
               child.y = currentY;
               currentY += childSpacing;
               visibleIndex++;
@@ -863,7 +863,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.12', 10, 10);
+    ctx.fillText('v1.0.13', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1143,7 +1143,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
             if (device.calculatedRemainder && device.calculatedRemainder > 10) {
               const childIndent = this.canvas.width * 0.05;
               this.nodeRenderer.renderRemainderNode(
-                device.x - childIndent,
+                device.x + childIndent,
                 device.children[device.children.length - 1]?.y + 70 || device.y + 70,
                 device.calculatedRemainder
               );
@@ -1267,7 +1267,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.12';
+const VERSION = '1.0.13';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
