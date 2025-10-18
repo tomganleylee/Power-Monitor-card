@@ -818,7 +818,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.4', 10, 10);
+    ctx.fillText('v1.0.5', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -835,10 +835,22 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       .filter(n => n.id !== 'total_load')
       .reduce((sum, node) => sum + node.powerWatts, 0);
 
+    // Apply inversions for GivEnergy compatibility
+    // GivEnergy uses negative for charging/importing (opposite of standard)
+    let batteryPower = batteryNode?.powerWatts ?? 0;
+    let gridPower = gridNode?.powerWatts ?? 0;
+
+    if (this.config.entities?.battery_invert) {
+      batteryPower = -batteryPower;
+    }
+    if (this.config.entities?.grid_invert) {
+      gridPower = -gridPower;
+    }
+
     const energyFlows = calculateEnergyFlows({
       solar: solarNode?.powerWatts ?? 0,
-      battery: batteryNode?.powerWatts ?? 0,
-      grid: gridNode?.powerWatts ?? 0,
+      battery: batteryPower,
+      grid: gridPower,
       totalLoad: totalLoad
     });
 
@@ -1032,15 +1044,15 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       ? this.sensorManager?.getPowerValue(this.config.entities.battery_capacity)
       : undefined;
 
-    const batteryPower = batteryNode?.powerWatts ?? 0;
+    const batteryPowerRaw = batteryNode?.powerWatts ?? 0;
 
     // Calculate battery time remaining
     let batteryTimeRemainingStr: string | undefined = undefined;
     if (batterySOC !== undefined && batteryCapacity) {
-      const timeMinutes = calculateBatteryTimeRemaining(batterySOC, batteryCapacity, batteryPower);
+      const timeMinutes = calculateBatteryTimeRemaining(batterySOC, batteryCapacity, batteryPowerRaw);
       if (timeMinutes !== null) {
         const timeStr = formatTimeRemaining(timeMinutes);
-        const direction = batteryPower > 10 ? 'empty' : 'full';
+        const direction = batteryPowerRaw > 10 ? 'empty' : 'full';
         batteryTimeRemainingStr = timeStr ? `${timeStr} to ${direction}` : undefined;
       }
     }
@@ -1207,7 +1219,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.4';
+const VERSION = '1.0.5';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',

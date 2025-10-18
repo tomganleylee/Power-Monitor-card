@@ -7,7 +7,9 @@ export interface EnergyFlowCardConfig {
     battery?: string;
     battery_soc?: string;
     battery_capacity?: string;
+    battery_invert?: boolean;  // If true, invert battery sign (for GivEnergy: negative=charging)
     grid?: string;
+    grid_invert?: boolean;      // If true, invert grid sign (for GivEnergy: negative=importing)
   };
   devices?: DeviceConfig[];
   categories?: CategoryConfig[];
