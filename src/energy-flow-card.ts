@@ -66,7 +66,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       update_interval: config.update_interval ?? 2000,
       show_statistics: config.show_statistics ?? false,  // Changed default to false
       visualization_mode: config.visualization_mode ?? 'both',  // Changed to 'both' to show Sankey lines + particles
-      min_height: config.min_height ?? 400,  // No artificial minimum
+      min_height: config.min_height ?? 800,  // Increased default to show more devices
       max_height: config.max_height ?? 9999  // Effectively unlimited - let card grow with content
     };
 
@@ -78,7 +78,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
    * @returns Card height in units (1 unit = ~50px)
    */
   public getCardSize(): number {
-    const minHeight = this.config?.min_height ?? 400;
+    const minHeight = this.config?.min_height ?? 800;
     return Math.ceil(minHeight / 50);
   }
 
@@ -199,7 +199,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       `;
     }
 
-    const minHeight = this.config.min_height ?? 400;
+    const minHeight = this.config.min_height ?? 800;
 
     return html`
       <div class="card-content">
@@ -818,7 +818,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.5', 10, 10);
+    ctx.fillText('v1.0.6', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1219,7 +1219,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.5';
+const VERSION = '1.0.6';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
