@@ -54,13 +54,13 @@ export class SankeyRenderer {
     const speed = 0.5;
     const offset = (this.animationTime * speed) % 1.0;
 
-    // Calculate gradient points extended beyond actual path for seamless animation
+    // Calculate gradient points - REVERSED to flow from 'to' to 'from' for correct animation
     const angle = Math.atan2(dy, dx);
     const gradientLength = distance * 2; // Make gradient longer for smooth loop
-    const gradientStartX = path.from.x - Math.cos(angle) * gradientLength * offset;
-    const gradientStartY = path.from.y - Math.sin(angle) * gradientLength * offset;
-    const gradientEndX = gradientStartX + Math.cos(angle) * gradientLength;
-    const gradientEndY = gradientStartY + Math.sin(angle) * gradientLength;
+    const gradientStartX = path.to.x + Math.cos(angle) * gradientLength * offset;
+    const gradientStartY = path.to.y + Math.sin(angle) * gradientLength * offset;
+    const gradientEndX = gradientStartX - Math.cos(angle) * gradientLength;
+    const gradientEndY = gradientStartY - Math.sin(angle) * gradientLength;
 
     const gradient = ctx.createLinearGradient(
       gradientStartX, gradientStartY,
