@@ -17,9 +17,17 @@ export class SankeyRenderer {
   private ctx: CanvasRenderingContext2D;
   private powerToWidthScale: number = 0.05;  // 1W = 0.05px width
   private maxWidth: number = 100;  // Maximum flow width in pixels
+  private animationTime: number = 0;  // Track animation time for gradient offset
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
+  }
+
+  /**
+   * Update animation time (call this each frame)
+   */
+  public updateAnimation(deltaTime: number): void {
+    this.animationTime += deltaTime;
   }
 
   /**
@@ -30,35 +38,61 @@ export class SankeyRenderer {
   }
 
   /**
-   * Draw a Sankey flow path between two points
+   * Draw a Sankey flow path between two points with animated gradient
    */
   public renderFlow(path: SankeyPath): void {
     const ctx = this.ctx;
     ctx.save();
 
-    // Create gradient for flow
+    // Calculate distance for gradient animation
+    const dx = path.to.x - path.from.x;
+    const dy = path.to.y - path.from.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Create animated gradient with traveling bright pulse
+    // The animation cycles every 2 seconds (speed = 0.5)
+    const speed = 0.5;
+    const offset = (this.animationTime * speed) % 1.0;
+
+    // Calculate gradient points extended beyond actual path for seamless animation
+    const angle = Math.atan2(dy, dx);
+    const gradientLength = distance * 2; // Make gradient longer for smooth loop
+    const gradientStartX = path.from.x - Math.cos(angle) * gradientLength * offset;
+    const gradientStartY = path.from.y - Math.sin(angle) * gradientLength * offset;
+    const gradientEndX = gradientStartX + Math.cos(angle) * gradientLength;
+    const gradientEndY = gradientStartY + Math.sin(angle) * gradientLength;
+
     const gradient = ctx.createLinearGradient(
-      path.from.x, path.from.y,
-      path.to.x, path.to.y
+      gradientStartX, gradientStartY,
+      gradientEndX, gradientEndY
     );
 
-    // Parse color and create gradient
+    // Parse base color
     const colorWithAlpha = path.color.includes('rgba')
       ? path.color
       : path.color.replace('rgb', 'rgba').replace(')', ', 0.6)');
 
-    gradient.addColorStop(0, colorWithAlpha);
-    gradient.addColorStop(1, colorWithAlpha.replace(/[\d.]+\)$/, '0.3)'));
+    // Extract RGB values for brighter pulse
+    const rgbaMatch = colorWithAlpha.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    const r = rgbaMatch ? parseInt(rgbaMatch[1]) : 100;
+    const g = rgbaMatch ? parseInt(rgbaMatch[2]) : 181;
+    const b = rgbaMatch ? parseInt(rgbaMatch[3]) : 246;
+
+    // Create animated gradient: dark → bright → dark
+    // This creates a "traveling wave" effect
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.2)`);      // Dark
+    gradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.4)`);    // Medium
+    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.8)`);    // Bright pulse
+    gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.4)`);    // Medium
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.2)`);      // Dark
 
     // Calculate Bezier curve control points
-    const dx = path.to.x - path.from.x;
-    const dy = path.to.y - path.from.y;
     const cp1x = path.from.x + dx * 0.5;
     const cp1y = path.from.y;
     const cp2x = path.to.x - dx * 0.5;
     const cp2y = path.to.y;
 
-    // Draw thick curved path
+    // Draw thick curved path with animated gradient
     ctx.lineWidth = path.width;
     ctx.strokeStyle = gradient;
     ctx.lineCap = 'round';

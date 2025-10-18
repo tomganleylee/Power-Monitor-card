@@ -553,18 +553,52 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   }
 
   /**
-   * Position consumption nodes in zigzag pattern
+   * Position consumption nodes in zigzag pattern with dynamic spacing
    */
   private positionConsumptionNodes(nodes: ConsumptionDeviceNode[]): void {
     const canvasWidth = this.canvas?.width ?? 800;
+    const canvasHeight = this.canvas?.height ?? 1000;
+
+    // Calculate total visible items (categories + children + standalones)
+    let totalVisibleItems = 0;
+    for (const node of nodes) {
+      if (!node.isVisible) continue;
+
+      const isCategory = this.categoryNodes.has(node.id);
+      const isCollapsed = this.collapsedCategories.has(node.id);
+
+      totalVisibleItems++; // Count the category/device itself
+
+      if (isCategory && !isCollapsed && node.children) {
+        // Count visible children
+        totalVisibleItems += node.children.filter(c => c.isVisible).length;
+        // Count remainder if exists
+        if (node.calculatedRemainder && node.calculatedRemainder > 10) {
+          totalVisibleItems++;
+        }
+      }
+    }
+
+    // Dynamic spacing calculation
+    const topMargin = 60;
+    const bottomMargin = 60;
+    const minSpacing = 60;  // Minimum spacing between items to prevent overlap
+    const availableHeight = canvasHeight - topMargin - bottomMargin;
+
+    // Calculate optimal spacing based on available height and item count
+    const calculatedSpacing = totalVisibleItems > 0
+      ? Math.max(minSpacing, availableHeight / totalVisibleItems)
+      : 100;
+
+    // Use calculated spacing for both categories and children
+    const categorySpacing = calculatedSpacing;
+    const childSpacing = calculatedSpacing * 0.9;  // Slightly tighter for children
 
     // Zigzag layout: alternate between right and far-right positions
     const rightX = canvasWidth * 0.75;  // Closer position (75% from left)
     const farRightX = canvasWidth * 0.90;  // Farther position (90% from left)
-    const categorySpacing = 100;  // Spacing for category nodes
-    const childSpacing = 70;  // Tighter spacing for child nodes
     const childIndent = canvasWidth * 0.05;  // Indent child nodes
-    const startY = 60;  // Start from top with margin
+    const startY = topMargin;  // Start from top with margin
 
     let currentY = startY;
     let visibleIndex = 0;
@@ -828,7 +862,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.8', 10, 10);
+    ctx.fillText('v1.0.9', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -883,6 +917,9 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Render Sankey flows (for 'sankey' or 'both' modes)
     if (vizMode === 'sankey' || vizMode === 'both') {
       if (this.sankeyRenderer) {
+        // Update animation time for flowing gradient effect
+        this.sankeyRenderer.updateAnimation(deltaTime);
+
         // Render Sankey flows between sources
         this.sankeyRenderer.renderEnergyFlows(energyFlows, this.sourceNodes, hubX, hubY);
 
@@ -1229,7 +1266,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.8';
+const VERSION = '1.0.9';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
