@@ -714,6 +714,9 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   private initializeCanvas(): void {
     if (!this.canvas) return;
 
+    // Add initializing class to prevent flash
+    this.canvas.classList.add('initializing');
+
     const container = this.canvas.parentElement;
     if (!container) return;
 
@@ -721,6 +724,13 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const rect = container.getBoundingClientRect();
     this.canvas.width = rect.width;
     this.canvas.height = rect.height;
+
+    // Remove initializing class after a frame to allow smooth fade-in
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.canvas?.classList.remove('initializing');
+      });
+    });
 
     // Initialize rendering systems
     const ctx = this.canvas.getContext('2d');
@@ -818,7 +828,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.6', 10, 10);
+    ctx.fillText('v1.0.7', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1219,7 +1229,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.6';
+const VERSION = '1.0.7';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',

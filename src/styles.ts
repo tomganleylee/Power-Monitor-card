@@ -69,6 +69,12 @@ export const styles = css`
     width: 100%;
     height: 100%;
     touch-action: none;
+    opacity: 1;
+    transition: opacity 0.15s ease-in;
+  }
+
+  canvas.initializing {
+    opacity: 0;
   }
 
   /* Statistics Panel - Dark styled panel at bottom */
