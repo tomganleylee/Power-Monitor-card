@@ -553,11 +553,20 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   }
 
   /**
-   * Position consumption nodes in zigzag pattern with dynamic spacing
+   * Position consumption nodes in multi-column layout with dynamic spacing
+   * Responsive: 1 column (narrow), 2 columns (medium), 3 columns (wide)
    */
   private positionConsumptionNodes(nodes: ConsumptionDeviceNode[]): void {
     const canvasWidth = this.canvas?.width ?? 800;
     const canvasHeight = this.canvas?.height ?? 1000;
+
+    // Determine number of columns based on canvas width (responsive)
+    let numColumns = 3;  // Default: 3 columns for wide screens
+    if (canvasWidth < 500) {
+      numColumns = 1;  // Narrow screens: single column
+    } else if (canvasWidth < 800) {
+      numColumns = 2;  // Medium screens: 2 columns
+    }
 
     // Calculate total visible items (categories + children + standalones)
     let totalVisibleItems = 0;
@@ -585,23 +594,41 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const minSpacing = 60;  // Minimum spacing between items to prevent overlap
     const availableHeight = canvasHeight - topMargin - bottomMargin;
 
-    // Calculate optimal spacing based on available height and item count
-    const calculatedSpacing = totalVisibleItems > 0
-      ? Math.max(minSpacing, availableHeight / totalVisibleItems)
+    // Calculate items per column for better vertical distribution
+    const itemsPerColumn = Math.ceil(totalVisibleItems / numColumns);
+
+    // Calculate optimal spacing based on available height and items per column
+    const calculatedSpacing = itemsPerColumn > 0
+      ? Math.max(minSpacing, availableHeight / itemsPerColumn)
       : 100;
 
     // Use calculated spacing for both categories and children
     const categorySpacing = calculatedSpacing;
     const childSpacing = calculatedSpacing * 0.9;  // Slightly tighter for children
 
-    // Zigzag layout: alternate between right and far-right positions
-    const rightX = canvasWidth * 0.75;  // Closer position (75% from left)
-    const farRightX = canvasWidth * 0.90;  // Farther position (90% from left)
-    const childIndent = canvasWidth * 0.05;  // Indent child nodes
+    // Define column positions based on number of columns
+    let columnPositions: number[];
+    if (numColumns === 1) {
+      columnPositions = [canvasWidth * 0.85];  // Single column, centered-right
+    } else if (numColumns === 2) {
+      columnPositions = [
+        canvasWidth * 0.75,  // Closer position (75% from left)
+        canvasWidth * 0.90   // Farther position (90% from left)
+      ];
+    } else {
+      columnPositions = [
+        canvasWidth * 0.70,  // Closest to center (70% from left)
+        canvasWidth * 0.82,  // Middle column (82% from left)
+        canvasWidth * 0.94   // Farthest right (94% from left)
+      ];
+    }
+
+    const childIndent = canvasWidth * 0.03;  // Indent child nodes (reduced for 3 columns)
     const startY = topMargin;  // Start from top with margin
 
     let currentY = startY;
     let visibleIndex = 0;
+    let currentColumn = 0;  // Track which column we're filling
 
     for (const node of nodes) {
       if (!node.isVisible) continue;
@@ -610,17 +637,29 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       const isCollapsed = this.collapsedCategories.has(node.id);
 
       if (isCategory) {
-        // Category nodes - always visible
-        node.x = (visibleIndex % 2 === 0) ? rightX : farRightX;
+        // Category nodes - distribute across columns using round-robin
+        node.x = columnPositions[visibleIndex % numColumns];
         node.y = currentY;
-        currentY += categorySpacing;
+
+        // Check if we've filled a row across all columns
+        if ((visibleIndex + 1) % numColumns === 0) {
+          currentY += categorySpacing;  // Move to next row
+        }
         visibleIndex++;
 
         // Show children if expanded
         if (!isCollapsed && node.children) {
           for (const child of node.children) {
             if (child.isVisible) {
-              child.x = ((visibleIndex % 2 === 0) ? rightX : farRightX) - childIndent;
+              // Children stay in parent's column, slightly indented
+              const parentColumnIndex = (visibleIndex - 1) % numColumns;
+              child.x = columnPositions[parentColumnIndex] - childIndent;
+
+              // Children start on next row if parent completed a row
+              if ((visibleIndex) % numColumns === 0) {
+                currentY += categorySpacing;
+              }
+
               child.y = currentY;
               currentY += childSpacing;
               visibleIndex++;
@@ -630,15 +669,22 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
           // Show remainder if exists
           if (node.calculatedRemainder && node.calculatedRemainder > 10) {
             // Remainder is displayed as part of category rendering
+            if ((visibleIndex) % numColumns === 0) {
+              currentY += categorySpacing;
+            }
             currentY += childSpacing;
             visibleIndex++;
           }
         }
       } else {
-        // Standalone device (not in category)
-        node.x = (visibleIndex % 2 === 0) ? rightX : farRightX;
+        // Standalone device (not in category) - distribute across columns
+        node.x = columnPositions[visibleIndex % numColumns];
         node.y = currentY;
-        currentY += categorySpacing;
+
+        // Check if we've filled a row across all columns
+        if ((visibleIndex + 1) % numColumns === 0) {
+          currentY += categorySpacing;  // Move to next row
+        }
         visibleIndex++;
       }
     }
@@ -862,7 +908,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.10', 10, 10);
+    ctx.fillText('v1.0.11', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1266,7 +1312,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.10';
+const VERSION = '1.0.11';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
