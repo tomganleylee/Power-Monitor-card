@@ -72,19 +72,15 @@ export class SankeyRenderer {
       ? path.color
       : path.color.replace('rgb', 'rgba').replace(')', ', 0.6)');
 
-    // Extract RGB values for brighter pulse
+    // Extract RGB values for smooth gradient
     const rgbaMatch = colorWithAlpha.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
     const r = rgbaMatch ? parseInt(rgbaMatch[1]) : 100;
     const g = rgbaMatch ? parseInt(rgbaMatch[2]) : 181;
     const b = rgbaMatch ? parseInt(rgbaMatch[3]) : 246;
 
-    // Create animated gradient: dark → bright → dark
-    // This creates a "traveling wave" effect
-    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.2)`);      // Dark
-    gradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.4)`);    // Medium
-    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.8)`);    // Bright pulse
-    gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.4)`);    // Medium
-    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.2)`);      // Dark
+    // Create smooth flowing gradient without pulsing
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);      // Consistent opacity
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.7)`);      // Consistent opacity
 
     // Calculate Bezier curve control points
     const cp1x = path.from.x + dx * 0.5;
