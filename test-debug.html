@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Card Debug</title>
+  <style>
+    body {
+      margin: 20px;
+      background: #1a1a1a;
+      color: white;
+      font-family: monospace;
+    }
+    pre {
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .success { color: #4ecdc4; }
+    .error { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+  <h1>Test Card Registration Debug</h1>
+  <div id="output"></div>
+
+  <script type="module">
+    const output = document.getElementById('output');
+
+    function log(msg, isError = false) {
+      const pre = document.createElement('pre');
+      pre.className = isError ? 'error' : 'success';
+      pre.textContent = msg;
+      output.appendChild(pre);
+    }
+
+    log('Step 1: Loading simple-test-card.js...');
+
+    const script = document.createElement('script');
+    script.src = 'http://192.168.3.12:8123/local/simple-test-card.js?v=' + Date.now();
+
+    script.onload = () => {
+      log('✓ Script loaded');
+
+      setTimeout(() => {
+        // Check if custom elements are defined
+        const cardDefined = customElements.get('simple-test-card');
+        const editorDefined = customElements.get('simple-test-card-editor');
+
+        if (cardDefined) {
+          log('✓ Card element registered: simple-test-card');
+        } else {
+          log('✗ Card element NOT registered: simple-test-card', true);
+        }
+
+        if (editorDefined) {
+          log('✓ Editor element registered: simple-test-card-editor');
+        } else {
+          log('✗ Editor element NOT registered: simple-test-card-editor', true);
+        }
+
+        // Check window.customCards
+        if (window.customCards) {
+          log('✓ window.customCards exists');
+          const testCard = window.customCards.find(c => c.type === 'custom:simple-test-card');
+          if (testCard) {
+            log('✓ Card registered in window.customCards:');
+            log(JSON.stringify(testCard, null, 2));
+          } else {
+            log('✗ Card NOT found in window.customCards', true);
+            log('Available cards: ' + window.customCards.map(c => c.type).join(', '));
+          }
+        } else {
+          log('✗ window.customCards does not exist', true);
+        }
+
+        // Check if getConfigElement exists
+        if (cardDefined && cardDefined.getConfigElement) {
+          log('✓ getConfigElement method exists on card');
+          try {
+            const editor = cardDefined.getConfigElement();
+            log('✓ getConfigElement() returns: ' + editor.tagName);
+          } catch (err) {
+            log('✗ getConfigElement() error: ' + err.message, true);
+          }
+        } else {
+          log('✗ getConfigElement method NOT found', true);
+        }
+
+        // Check if getStubConfig exists
+        if (cardDefined && cardDefined.getStubConfig) {
+          log('✓ getStubConfig method exists');
+          try {
+            const stub = cardDefined.getStubConfig();
+            log('✓ getStubConfig() returns:');
+            log(JSON.stringify(stub, null, 2));
+          } catch (err) {
+            log('✗ getStubConfig() error: ' + err.message, true);
+          }
+        } else {
+          log('✗ getStubConfig method NOT found', true);
+        }
+
+      }, 500);
+    };
+
+    script.onerror = (e) => {
+      log('✗ Failed to load script', true);
+    };
+
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>

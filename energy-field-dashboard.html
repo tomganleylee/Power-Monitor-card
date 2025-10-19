@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Field Power Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #000000 0%, #1a1a2e 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .energy-field {
+            position: relative;
+            flex: 1;
+            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        
+        .energy-nodes {
+            position: relative;
+            height: 100%;
+            z-index: 2;
+        }
+        
+        .energy-node {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .energy-node:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.8);
+            z-index: 10;
+        }
+        
+        .energy-node.source {
+            width: 110px;
+            height: 110px;
+        }
+        
+        .energy-node.solar-energy {
+            top: 50%;
+            left: 10%;
+            transform: translateY(-50%);
+            border-color: #fbbf24;
+            box-shadow: 0 0 40px rgba(251, 191, 36, 0.6);
+        }
+        
+        .energy-node.solar-energy:hover {
+            box-shadow: 0 0 60px rgba(251, 191, 36, 0.9);
+        }
+        
+        .energy-node.battery-energy {
+            top: 20%;
+            left: 30%;
+            border-color: #10b981;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+        }
+        
+        .energy-node.battery-energy:hover {
+            box-shadow: 0 0 60px rgba(16, 185, 129, 0.9);
+        }
+        
+        .energy-node.grid-energy {
+            bottom: 20%;
+            left: 30%;
+            border-color: #ef4444;
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.6);
+        }
+        
+        .energy-node.grid-energy:hover {
+            box-shadow: 0 0 60px rgba(239, 68, 68, 0.9);
+        }
+        
+        .energy-node.hub {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 140px;
+            height: 140px;
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 60px rgba(59, 130, 246, 0.8);
+        }
+        
+        .energy-node.hub:hover {
+            box-shadow: 0 0 80px rgba(59, 130, 246, 1);
+        }
+        
+        .energy-node.device {
+            width: 80px;
+            height: 80px;
+        }
+        
+        .energy-node.device:nth-of-type(5) { top: 15%; right: 20%; }
+        .energy-node.device:nth-of-type(6) { top: 35%; right: 10%; }
+        .energy-node.device:nth-of-type(7) { top: 55%; right: 8%; }
+        .energy-node.device:nth-of-type(8) { top: 75%; right: 15%; }
+        .energy-node.device:nth-of-type(9) { bottom: 10%; right: 25%; }
+        
+        .node-icon {
+            font-size: 2em;
+            margin-bottom: 5px;
+            filter: drop-shadow(0 0 5px currentColor);
+        }
+        
+        .node-value {
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .node-label {
+            font-size: 0.65em;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
+        .energy-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #3b82f6;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #3b82f6;
+            animation: particleFloat 4s infinite ease-in-out;
+        }
+        
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translate(0, 0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty));
+                opacity: 0;
+            }
+        }
+        
+        .particle:nth-child(1) { top: 50%; left: 20%; --tx: 200px; --ty: -50px; animation-delay: 0s; }
+        .particle:nth-child(2) { top: 30%; left: 35%; --tx: 150px; --ty: 100px; animation-delay: 0.5s; }
+        .particle:nth-child(3) { bottom: 30%; left: 35%; --tx: 180px; --ty: -80px; animation-delay: 1s; }
+        .particle:nth-child(4) { top: 50%; left: 20%; --tx: 220px; --ty: 60px; animation-delay: 1.5s; }
+        .particle:nth-child(5) { top: 35%; left: 30%; --tx: 200px; --ty: -30px; animation-delay: 2s; }
+        .particle:nth-child(6) { bottom: 35%; left: 30%; --tx: 190px; --ty: 70px; animation-delay: 2.5s; }
+        .particle:nth-child(7) { top: 45%; left: 25%; --tx: 210px; --ty: 40px; animation-delay: 3s; }
+        .particle:nth-child(8) { top: 55%; left: 25%; --tx: 200px; --ty: -60px; animation-delay: 3.5s; }
+        .particle:nth-child(9) { top: 50%; left: 18%; --tx: 230px; --ty: 0px; animation-delay: 0.25s; }
+        .particle:nth-child(10) { top: 25%; left: 32%; --tx: 180px; --ty: 50px; animation-delay: 0.75s; }
+        .particle:nth-child(11) { bottom: 25%; left: 32%; --tx: 200px; --ty: -90px; animation-delay: 1.25s; }
+        .particle:nth-child(12) { top: 48%; left: 22%; --tx: 210px; --ty: 80px; animation-delay: 1.75s; }
+        
+        .energy-stats {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 30px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 3;
+        }
+        
+        .energy-stat {
+            text-align: center;
+        }
+        
+        .energy-stat-label {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-bottom: 3px;
+        }
+        
+        .energy-stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        /* Connection lines */
+        .connection-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .connection-line {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, 
+                rgba(59, 130, 246, 0), 
+                rgba(59, 130, 246, 0.3), 
+                rgba(59, 130, 246, 0));
+            transform-origin: left center;
+        }
+        
+        /* Pulsing effect on active nodes */
+        .energy-node.active::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.1);
+            }
+        }
+        
+        .energy-node.solar-energy.active {
+            color: #fbbf24;
+        }
+        
+        .energy-node.battery-energy.active {
+            color: #10b981;
+        }
+        
+        .energy-node.grid-energy.active {
+            color: #ef4444;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .energy-node { width: 80px; height: 80px; }
+            .energy-node.source { width: 90px; height: 90px; }
+            .energy-node.hub { width: 110px; height: 110px; }
+            .energy-node.device { width: 65px; height: 65px; }
+            .node-icon { font-size: 1.5em; }
+            .energy-stats { gap: 20px; padding: 12px 24px; }
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.5em; }
+            .energy-node { width: 70px; height: 70px; }
+            .energy-node.source { width: 80px; height: 80px; }
+            .energy-node.hub { width: 100px; height: 100px; }
+            .energy-node.device { width: 60px; height: 60px; }
+            .node-icon { font-size: 1.3em; }
+            .node-value { font-size: 0.75em; }
+            .node-label { font-size: 0.6em; }
+            .energy-stats { 
+                gap: 15px; 
+                padding: 10px 20px;
+                flex-wrap: wrap;
+            }
+            .energy-stat-label { font-size: 0.7em; }
+            .energy-stat-value { font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Energy Field Monitor</h1>
+        </div>
+        
+        <div class="energy-field">
+            <div class="connection-lines" id="connectionLines"></div>
+            
+            <div class="energy-particles" id="particleContainer">
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+            </div>
+            
+            <div class="energy-nodes">
+                <div class="energy-node solar-energy source active" data-entity="sensor.solar_power">
+                    <div class="node-icon">☀️</div>
+                    <div class="node-value" id="solar-value">2.8kW</div>
+                    <div class="node-label">Solar</div>
+                </div>
+                
+                <div class="energy-node battery-energy source active" data-entity="sensor.battery_power">
+                    <div class="node-icon">🔋</div>
+                    <div class="node-value" id="battery-value">0.4kW</div>
+                    <div class="node-label">Battery</div>
+                </div>
+                
+                <div class="energy-node grid-energy source" data-entity="sensor.grid_power">
+                    <div class="node-icon">⚡</div>
+                    <div class="node-value" id="grid-value">0.0kW</div>
+                    <div class="node-label">Grid</div>
+                </div>
+                
+                <div class="energy-node hub" data-entity="sensor.total_power">
+                    <div class="node-icon">🏠</div>
+                    <div class="node-value" id="total-value">3.2kW</div>
+                    <div class="node-label">Total</div>
+                </div>
+                
+                <div class="energy-node device" data-entity="sensor.lights_power">
+                    <div class="node-icon">💡</div>
+                    <div class="node-value" id="lights-value">120W</div>
+                </div>
+                
+                <div class="energy-node device" data-entity="sensor.computer_power">
+                    <div class="node-icon">💻</div>
+                    <div class="node-value" id="computer-value">85W</div>
+                </div>
+                
+                <div class="energy-node device" data-entity="sensor.tv_power">
+                    <div class="node-icon">📺</div>
+                    <div class="node-value" id="tv-value">180W</div>
+                </div>
+                
+                <div class="energy-node device" data-entity="sensor.ac_power">
+                    <div class="node-icon">❄️</div>
+                    <div class="node-value" id="ac-value">1.8kW</div>
+                </div>
+                
+                <div class="energy-node device" data-entity="sensor.other_power">
+                    <div class="node-icon">🔌</div>
+                    <div class="node-value" id="other-value">950W</div>
+                </div>
+            </div>
+            
+            <div class="energy-stats">
+                <div class="energy-stat">
+                    <div class="energy-stat-label">Efficiency</div>
+                    <div class="energy-stat-value" id="efficiency-value">94%</div>
+                </div>
+                <div class="energy-stat">
+                    <div class="energy-stat-label">Self-Sufficient</div>
+                    <div class="energy-stat-value" id="self-sufficient-value">100%</div>
+                </div>
+                <div class="energy-stat">
+                    <div class="energy-stat-label">Daily Savings</div>
+                    <div class="energy-stat-value" id="savings-value">$8.40</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Home Assistant Integration
+        // This script connects to Home Assistant and updates the display with real-time data
+        
+        class EnergyFieldMonitor {
+            constructor() {
+                this.entities = {
+                    solar: 'sensor.solar_power',
+                    battery: 'sensor.battery_power',
+                    grid: 'sensor.grid_power',
+                    total: 'sensor.total_power',
+                    lights: 'sensor.lights_power',
+                    computer: 'sensor.computer_power',
+                    tv: 'sensor.tv_power',
+                    ac: 'sensor.ac_power',
+                    other: 'sensor.other_power'
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                // Check if running in Home Assistant
+                if (typeof window.hassConnection !== 'undefined') {
+                    this.connectToHomeAssistant();
+                } else {
+                    console.log('Running in demo mode');
+                    this.startDemoMode();
+                }
+                
+                this.setupInteractivity();
+            }
+            
+            connectToHomeAssistant() {
+                // Subscribe to entity updates
+                window.hassConnection.subscribeEntities(entities => {
+                    this.updateDisplay(entities);
+                });
+            }
+            
+            startDemoMode() {
+                // Simulate changing values for demo
+                setInterval(() => {
+                    const solar = (Math.random() * 3 + 1.5).toFixed(1);
+                    const battery = (Math.random() * 0.8).toFixed(1);
+                    const grid = (Math.random() * 0.5).toFixed(1);
+                    const total = (parseFloat(solar) + parseFloat(battery) + parseFloat(grid)).toFixed(1);
+                    
+                    document.getElementById('solar-value').textContent = `${solar}kW`;
+                    document.getElementById('battery-value').textContent = `${battery}kW`;
+                    document.getElementById('grid-value').textContent = `${grid}kW`;
+                    document.getElementById('total-value').textContent = `${total}kW`;
+                    
+                    // Update active states
+                    this.updateActiveStates(parseFloat(solar), parseFloat(battery), parseFloat(grid));
+                    
+                    // Random device values
+                    document.getElementById('lights-value').textContent = `${Math.floor(Math.random() * 100 + 80)}W`;
+                    document.getElementById('computer-value').textContent = `${Math.floor(Math.random() * 50 + 60)}W`;
+                    document.getElementById('tv-value').textContent = `${Math.floor(Math.random() * 100 + 150)}W`;
+                    document.getElementById('ac-value').textContent = `${(Math.random() * 0.5 + 1.5).toFixed(1)}kW`;
+                    document.getElementById('other-value').textContent = `${Math.floor(Math.random() * 300 + 800)}W`;
+                    
+                    // Update stats
+                    document.getElementById('efficiency-value').textContent = `${Math.floor(Math.random() * 10 + 90)}%`;
+                    const selfSufficient = parseFloat(grid) === 0 ? 100 : Math.floor((1 - parseFloat(grid) / parseFloat(total)) * 100);
+                    document.getElementById('self-sufficient-value').textContent = `${selfSufficient}%`;
+                    document.getElementById('savings-value').textContent = `$${(Math.random() * 3 + 6).toFixed(2)}`;
+                }, 3000);
+            }
+            
+            updateActiveStates(solar, battery, grid) {
+                const solarNode = document.querySelector('.solar-energy');
+                const batteryNode = document.querySelector('.battery-energy');
+                const gridNode = document.querySelector('.grid-energy');
+                
+                if (solar > 0.5) {
+                    solarNode.classList.add('active');
+                } else {
+                    solarNode.classList.remove('active');
+                }
+                
+                if (battery > 0.1) {
+                    batteryNode.classList.add('active');
+                } else {
+                    batteryNode.classList.remove('active');
+                }
+                
+                if (grid > 0.1) {
+                    gridNode.classList.add('active');
+                } else {
+                    gridNode.classList.remove('active');
+                }
+            }
+            
+            updateDisplay(entities) {
+                // Update each entity value
+                Object.keys(this.entities).forEach(key => {
+                    const entityId = this.entities[key];
+                    const entity = entities[entityId];
+                    
+                    if (entity) {
+                        const elementId = `${key}-value`;
+                        const element = document.getElementById(elementId);
+                        
+                        if (element) {
+                            let value = parseFloat(entity.state);
+                            let unit = entity.attributes.unit_of_measurement || 'W';
+                            
+                            // Format value
+                            if (value >= 1000) {
+                                value = (value / 1000).toFixed(1);
+                                unit = 'kW';
+                            } else {
+                                value = Math.round(value);
+                                unit = 'W';
+                            }
+                            
+                            element.textContent = `${value}${unit}`;
+                        }
+                    }
+                });
+                
+                // Update active states
+                const solarPower = parseFloat(entities[this.entities.solar]?.state || 0);
+                const batteryPower = parseFloat(entities[this.entities.battery]?.state || 0);
+                const gridPower = parseFloat(entities[this.entities.grid]?.state || 0);
+                
+                this.updateActiveStates(solarPower, batteryPower, gridPower);
+            }
+            
+            setupInteractivity() {
+                // Add click handlers to nodes for more info
+                const nodes = document.querySelectorAll('.energy-node');
+                
+                nodes.forEach(node => {
+                    node.addEventListener('click', (e) => {
+                        const entity = node.getAttribute('data-entity');
+                        if (entity && typeof window.moreInfoDialog !== 'undefined') {
+                            window.moreInfoDialog.showDialog(entity);
+                        } else {
+                            console.log('Clicked entity:', entity);
+                        }
+                    });
+                });
+            }
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                new EnergyFieldMonitor();
+            });
+        } else {
+            new EnergyFieldMonitor();
+        }
+    </script>
+</body>
+</html>

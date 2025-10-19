@@ -1,0 +1,25 @@
+# Minimal Energy Flow Card Configuration
+# Shows just the essential energy sources without individual device tracking
+
+type: custom:energy-flow-card
+
+# Main Energy Sources Only
+entities:
+  solar: sensor.solar_power
+  battery: sensor.battery_power
+  battery_soc: sensor.battery_soc
+  battery_capacity: 10.0
+  grid: sensor.grid_power
+
+# Optional: Add total home consumption if you have a single sensor
+devices:
+  - id: home_total
+    entity_id: sensor.home_total_power
+    name: Total Home Load
+    icon: 🏠
+    show_when_off: true
+
+# Minimal Settings
+visualization_mode: particles
+show_statistics: true
+update_interval: 3000

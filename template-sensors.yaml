@@ -1,0 +1,28 @@
+# Template Sensors for Energy Flow Card
+# Add this to your configuration.yaml:
+#
+# template: !include template-sensors.yaml
+#
+# Or if you already have a template section, merge this into it.
+
+- sensor:
+    - name: "Networking Servers Total"
+      unique_id: networking_servers_total
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      state: >
+        {{
+          (states('sensor.home_server_current_consumption') | float(0)) +
+          (states('sensor.network_power_current_consumption') | float(0)) +
+          (states('sensor.chia_nas_current_consumption') | float(0))
+        }}
+      availability: >
+        {{
+          has_value('sensor.home_server_current_consumption') and
+          has_value('sensor.network_power_current_consumption') and
+          has_value('sensor.chia_nas_current_consumption')
+        }}
+      attributes:
+        friendly_name: "Networking & Servers Total Power"
+        icon: mdi:server-network

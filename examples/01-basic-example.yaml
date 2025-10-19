@@ -1,0 +1,40 @@
+# Basic Energy Flow Card Configuration
+# This is the simplest configuration with just energy sources and individual devices
+
+type: custom:energy-flow-card
+
+# Main Energy Sources
+entities:
+  solar: sensor.givtcp_ce2122g101_pv_power
+  battery: sensor.givtcp_ce2122g101_battery_power
+  battery_soc: sensor.givtcp_ce2122g101_soc
+  battery_capacity: 9.5  # Your battery capacity in kWh
+  grid: sensor.givtcp_ce2122g101_grid_power
+
+# Individual Consumption Devices
+devices:
+  - id: tv
+    entity_id: sensor.tv_current_consumption
+    name: TV
+    icon: 📺
+    show_when_off: false
+  - id: pc
+    entity_id: sensor.tumble_dryer_power
+    name: PC
+    icon: 🖥️
+    show_when_off: true
+  - id: fridge
+    entity_id: sensor.fridgez_power
+    name: Fridge
+    icon: ❄️
+    show_when_off: true
+  - id: sockets
+    entity_id: sensor.0xa4c138dc734d8579_power_b
+    name: Sockets
+    icon: 🔌
+    show_when_off: false
+
+# Visualization Settings
+visualization_mode: particles
+show_statistics: true
+update_interval: 2000

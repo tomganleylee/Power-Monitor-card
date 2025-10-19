@@ -1,0 +1,101 @@
+# Energy Flow Card with Circuit Tracking and Remainder Calculation
+# This configuration tracks entire circuits and calculates "unknown" devices
+
+type: custom:energy-flow-card
+
+# Main Energy Sources
+entities:
+  solar: sensor.solar_power
+  battery: sensor.battery_power
+  battery_soc: sensor.battery_soc
+  battery_capacity: 9.5
+  grid: sensor.grid_power
+
+# Device Categories with Circuit Tracking
+# When you specify a circuit_entity, the card will:
+# 1. Use the circuit's total power for the category
+# 2. Calculate the remainder (circuit total - sum of known devices)
+# 3. Display the remainder as "Other [Category Name]" when > 10W
+categories:
+  - id: kitchen_circuit
+    name: Kitchen Circuit
+    icon: 🍳
+    circuit_entity: sensor.kitchen_circuit_power  # Total power for entire circuit
+  - id: bedroom_circuit
+    name: Bedroom Circuit
+    icon: 🛏️
+    circuit_entity: sensor.bedroom_circuit_power
+  - id: garage_circuit
+    name: Garage
+    icon: 🚗
+    circuit_entity: sensor.garage_circuit_power
+
+# Individual Devices
+devices:
+  # Kitchen Circuit - Known Devices
+  - id: fridge
+    entity_id: sensor.fridge_power
+    name: Refrigerator
+    icon: 🧊
+    category: kitchen_circuit
+    show_when_off: true
+  - id: dishwasher
+    entity_id: sensor.dishwasher_power
+    name: Dishwasher
+    icon: 🍽️
+    category: kitchen_circuit
+    show_when_off: false
+  - id: microwave
+    entity_id: sensor.microwave_power
+    name: Microwave
+    icon: 📻
+    category: kitchen_circuit
+    show_when_off: false
+  # If kitchen_circuit_power = 800W and devices sum to 600W,
+  # a 200W "Other Kitchen Circuit" node will appear
+
+  # Bedroom Circuit - Known Devices
+  - id: tv_bedroom
+    entity_id: sensor.bedroom_tv_power
+    name: Bedroom TV
+    icon: 📺
+    category: bedroom_circuit
+    show_when_off: false
+  - id: ac_bedroom
+    entity_id: sensor.bedroom_ac_power
+    name: Bedroom AC
+    icon: ❄️
+    category: bedroom_circuit
+    show_when_off: true
+
+  # Garage Circuit - Known Devices
+  - id: ev_charger
+    entity_id: sensor.ev_charger_power
+    name: EV Charger
+    icon: ⚡
+    category: garage_circuit
+    show_when_off: false
+  - id: garage_lights
+    entity_id: sensor.garage_lights_power
+    name: Garage Lights
+    icon: 💡
+    category: garage_circuit
+    show_when_off: false
+
+# Visualization Settings
+visualization_mode: both  # Show both particles AND sankey flows
+show_statistics: true
+update_interval: 2000
+min_height: 600
+max_height: 900
+
+# Warning Thresholds
+warnings:
+  battery_low: 15
+  grid_import: 5000
+
+# Custom Theme
+theme:
+  solar_color: '#FFB300'
+  battery_color: '#66BB6A'
+  grid_color: '#EF5350'

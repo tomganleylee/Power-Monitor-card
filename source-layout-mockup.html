@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Source Layout Options - Visual Mockup</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3250 0%, #0a1423 100%);
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #64b5f6;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .layouts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .layout-card {
+            background: rgba(30, 50, 80, 0.4);
+            border: 2px solid rgba(100, 181, 246, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .layout-card:hover {
+            border-color: rgba(100, 181, 246, 0.8);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(100, 181, 246, 0.2);
+        }
+
+        .layout-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #64b5f6;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .layout-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 20px;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .canvas-container {
+            background: linear-gradient(135deg, rgba(30, 50, 80, 0.3) 0%, rgba(10, 20, 35, 0.8) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 400px;
+        }
+
+        .pros-cons {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .pros-cons h4 {
+            color: #4caf50;
+            margin: 10px 0 5px 0;
+            font-size: 14px;
+        }
+
+        .pros-cons ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .pros-cons li {
+            color: #ccc;
+        }
+
+        .philosophy {
+            background: rgba(100, 181, 246, 0.1);
+            padding: 10px;
+            border-left: 3px solid #64b5f6;
+            margin: 10px 0;
+            font-size: 12px;
+            font-style: italic;
+            color: #64b5f6;
+        }
+
+        @media (max-width: 1200px) {
+            .layouts {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ Energy Flow Card - Source Layout Options</h1>
+    <div class="subtitle">Visual mockups with battery centered vertically (Y=50%)</div>
+
+    <div class="layouts">
+        <!-- Option A: Triangle Formation -->
+        <div class="layout-card">
+            <div class="layout-title">Option A: Triangle Formation</div>
+            <div class="layout-subtitle">Three pillars of energy - balanced foundation</div>
+            <div class="canvas-container">
+                <canvas id="canvas-a"></canvas>
+            </div>
+            <div class="philosophy">
+                "Three pillars of energy" - All sources aligned vertically, battery perfectly centered
+            </div>
+            <div class="pros-cons">
+                <h4>✅ Pros:</h4>
+                <ul>
+                    <li>Zero line crossing</li>
+                    <li>Perfect vertical symmetry</li>
+                    <li>Battery visually centered</li>
+                    <li>Clean, organized look</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Option B: Energy Cascade -->
+        <div class="layout-card">
+            <div class="layout-title">Option B: Energy Cascade</div>
+            <div class="layout-subtitle">Battery as the pivot between sources</div>
+            <div class="canvas-container">
+                <canvas id="canvas-b"></canvas>
+            </div>
+            <div class="philosophy">
+                "Battery as the pivot" - Central switching point, creates dynamic Z-depth
+            </div>
+            <div class="pros-cons">
+                <h4>✅ Pros:</h4>
+                <ul>
+                    <li>Battery emphasized (forward position)</li>
+                    <li>Dynamic depth illusion</li>
+                    <li>Shows battery importance</li>
+                    <li>Unique staggered layout</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Option C: Solar System Orbit -->
+        <div class="layout-card">
+            <div class="layout-title">Option C: Solar System Orbit</div>
+            <div class="layout-subtitle">Hub as the sun, sources as orbiting planets</div>
+            <div class="canvas-container">
+                <canvas id="canvas-c"></canvas>
+            </div>
+            <div class="philosophy">
+                "Hub as the sun" - Battery in stable outer orbit, solar/grid as closer satellites
+            </div>
+            <div class="pros-cons">
+                <h4>✅ Pros:</h4>
+                <ul>
+                    <li>Orbital metaphor</li>
+                    <li>Solar/Grid symmetry</li>
+                    <li>Battery as "anchor"</li>
+                    <li>Curved flow lines</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Common settings
+        const nodeColors = {
+            solar: '#ffa500',
+            battery: '#4caf50',
+            grid: '#f44336',
+            hub: '#64b5f6'
+        };
+
+        const nodeIcons = {
+            solar: '☀️',
+            battery: '🔋',
+            grid: '⚡',
+            hub: '🏠'
+        };
+
+        function drawNode(ctx, x, y, radius, color, icon, label, sublabel = '') {
+            // Glow effect
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
+
+            // Circle
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Border
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+
+            // Icon
+            ctx.font = `${radius}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(icon, x, y);
+
+            // Label
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#fff';
+            ctx.fillText(label, x, y + radius + 20);
+
+            // Sublabel
+            if (sublabel) {
+                ctx.font = '11px Arial';
+                ctx.fillStyle = '#999';
+                ctx.fillText(sublabel, x, y + radius + 35);
+            }
+        }
+
+        function drawConnection(ctx, x1, y1, x2, y2, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.4;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+        }
+
+        function drawCurvedConnection(ctx, x1, y1, x2, y2, color, curve = 0.3) {
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const controlX = midX - dy * curve;
+            const controlY = midY + dx * curve;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.4;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.quadraticCurveTo(controlX, controlY, x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+        }
+
+        // Option A: Triangle Formation
+        function drawLayoutA() {
+            const canvas = document.getElementById('canvas-a');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 400;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Positions
+            const solar = { x: w * 0.20, y: h * 0.20, r: 35 };
+            const battery = { x: w * 0.20, y: h * 0.50, r: 32 };
+            const grid = { x: w * 0.20, y: h * 0.80, r: 32 };
+            const hub = { x: w * 0.65, y: h * 0.50, r: 35 };
+
+            // Draw connections
+            drawConnection(ctx, solar.x, solar.y, hub.x, hub.y, nodeColors.solar);
+            drawConnection(ctx, battery.x, battery.y, hub.x, hub.y, nodeColors.battery);
+            drawConnection(ctx, grid.x, grid.y, hub.x, hub.y, nodeColors.grid);
+
+            // Draw nodes
+            drawNode(ctx, solar.x, solar.y, solar.r, nodeColors.solar, nodeIcons.solar, 'Solar', 'X=20%, Y=20%');
+            drawNode(ctx, battery.x, battery.y, battery.r, nodeColors.battery, nodeIcons.battery, 'Battery', 'X=20%, Y=50% ⭐');
+            drawNode(ctx, grid.x, grid.y, grid.r, nodeColors.grid, nodeIcons.grid, 'Grid', 'X=20%, Y=80%');
+            drawNode(ctx, hub.x, hub.y, hub.r, nodeColors.hub, nodeIcons.hub, 'Hub', 'X=65%, Y=50%');
+        }
+
+        // Option B: Energy Cascade
+        function drawLayoutB() {
+            const canvas = document.getElementById('canvas-b');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 400;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Positions
+            const solar = { x: w * 0.12, y: h * 0.30, r: 35 };
+            const battery = { x: w * 0.24, y: h * 0.50, r: 32 };
+            const grid = { x: w * 0.12, y: h * 0.70, r: 32 };
+            const hub = { x: w * 0.65, y: h * 0.50, r: 35 };
+
+            // Draw connections
+            drawConnection(ctx, solar.x, solar.y, hub.x, hub.y, nodeColors.solar);
+            drawConnection(ctx, battery.x, battery.y, hub.x, hub.y, nodeColors.battery);
+            drawConnection(ctx, grid.x, grid.y, hub.x, hub.y, nodeColors.grid);
+
+            // Draw nodes
+            drawNode(ctx, solar.x, solar.y, solar.r, nodeColors.solar, nodeIcons.solar, 'Solar', 'X=12%, Y=30%');
+            drawNode(ctx, battery.x, battery.y, battery.r, nodeColors.battery, nodeIcons.battery, 'Battery', 'X=24%, Y=50% ⭐');
+            drawNode(ctx, grid.x, grid.y, grid.r, nodeColors.grid, nodeIcons.grid, 'Grid', 'X=12%, Y=70%');
+            drawNode(ctx, hub.x, hub.y, hub.r, nodeColors.hub, nodeIcons.hub, 'Hub', 'X=65%, Y=50%');
+        }
+
+        // Option C: Solar System Orbit
+        function drawLayoutC() {
+            const canvas = document.getElementById('canvas-c');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 400;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Positions
+            const solar = { x: w * 0.28, y: h * 0.25, r: 35 };
+            const battery = { x: w * 0.15, y: h * 0.50, r: 32 };
+            const grid = { x: w * 0.28, y: h * 0.75, r: 32 };
+            const hub = { x: w * 0.65, y: h * 0.50, r: 35 };
+
+            // Draw curved connections (orbital)
+            drawCurvedConnection(ctx, solar.x, solar.y, hub.x, hub.y, nodeColors.solar, 0.15);
+            drawCurvedConnection(ctx, battery.x, battery.y, hub.x, hub.y, nodeColors.battery, 0.1);
+            drawCurvedConnection(ctx, grid.x, grid.y, hub.x, hub.y, nodeColors.grid, -0.15);
+
+            // Draw nodes
+            drawNode(ctx, solar.x, solar.y, solar.r, nodeColors.solar, nodeIcons.solar, 'Solar', 'X=28%, Y=25%');
+            drawNode(ctx, battery.x, battery.y, battery.r, nodeColors.battery, nodeIcons.battery, 'Battery', 'X=15%, Y=50% ⭐');
+            drawNode(ctx, grid.x, grid.y, grid.r, nodeColors.grid, nodeIcons.grid, 'Grid', 'X=28%, Y=75%');
+            drawNode(ctx, hub.x, hub.y, hub.r, nodeColors.hub, nodeIcons.hub, 'Hub', 'X=65%, Y=50%');
+        }
+
+        // Draw all layouts
+        drawLayoutA();
+        drawLayoutB();
+        drawLayoutC();
+
+        // Redraw on window resize
+        window.addEventListener('resize', () => {
+            drawLayoutA();
+            drawLayoutB();
+            drawLayoutC();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/yourusername/energy-flow-card/schemas/card-config.schema.json",
+  "title": "Energy Flow Card Configuration",
+  "description": "Configuration schema for the Home Assistant Energy Flow Visualization Card",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "custom:energy-flow-card",
+      "description": "Card type identifier"
+    },
+    "entities": {
+      "type": "object",
+      "description": "Energy source entity mappings",
+      "properties": {
+        "solar": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Solar power sensor entity ID"
+        },
+        "battery": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Battery power sensor entity ID"
+        },
+        "battery_soc": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Battery state of charge (%) sensor entity ID"
+        },
+        "battery_capacity": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Battery total capacity (kWh) sensor entity ID"
+        },
+        "grid": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Grid import/export power sensor entity ID"
+        }
+      },
+      "additionalProperties": false
+    },
+    "devices": {
+      "type": "array",
+      "description": "Consumption devices to monitor",
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/definitions/DeviceConfig"
+      },
+      "default": []
+    },
+    "categories": {
+      "type": "array",
+      "description": "Device grouping categories",
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/definitions/CategoryConfig"
+      },
+      "default": []
+    },
+    "update_interval": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 2,
+      "description": "Sensor update interval in seconds"
+    },
+    "show_statistics": {
+      "type": "boolean",
+      "default": false,
+      "description": "Display statistics panel (efficiency, self-sufficiency, savings)"
+    },
+    "min_height": {
+      "type": "number",
+      "minimum": 200,
+      "description": "Minimum card height in pixels"
+    },
+    "max_height": {
+      "type": "number",
+      "minimum": 200,
+      "description": "Maximum card height in pixels"
+    },
+    "warnings": {
+      "type": "object",
+      "description": "Visual warning threshold configuration",
+      "properties": {
+        "battery_low": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Battery low warning threshold (%)"
+        },
+        "grid_import": {
+          "type": "number",
+          "minimum": 0,
+          "description": "High grid import warning threshold (kW)"
+        },
+        "custom": {
+          "type": "array",
+          "description": "Custom warning conditions",
+          "items": {
+            "$ref": "#/definitions/WarningConfig"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "theme": {
+      "type": "object",
+      "description": "Color theme customization",
+      "properties": {
+        "solar_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "default": "#fbbf24",
+          "description": "Solar energy color (hex)"
+        },
+        "battery_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "default": "#10b981",
+          "description": "Battery energy color (hex)"
+        },
+        "grid_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "default": "#ef4444",
+          "description": "Grid energy color (hex)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "DeviceConfig": {
+      "type": "object",
+      "required": ["id", "entity_id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique device identifier"
+        },
+        "entity_id": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Home Assistant sensor entity ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name (defaults to entity friendly name)"
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^mdi:[a-z0-9-]+$",
+          "description": "Material Design Icon name (e.g., mdi:lightbulb)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category ID for grouping"
+        },
+        "parent_circuit": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Parent circuit entity for hierarchical power calculation"
+        },
+        "show_when_off": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show device even when consuming 0W"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CategoryConfig": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique category identifier"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Category display name"
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^mdi:[a-z0-9-]+$",
+          "description": "Material Design Icon name"
+        },
+        "circuit_entity": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Circuit monitoring entity for hierarchical calculation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "WarningConfig": {
+      "type": "object",
+      "required": ["id", "condition", "entity_id", "threshold"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique warning identifier"
+        },
+        "condition": {
+          "type": "string",
+          "enum": ["above", "below"],
+          "description": "Trigger condition"
+        },
+        "entity_id": {
+          "type": "string",
+          "pattern": "^(sensor|binary_sensor)\\.[a-z0-9_]+$",
+          "description": "Entity to monitor"
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Threshold value"
+        },
+        "message": {
+          "type": "string",
+          "description": "Optional custom warning message"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "type": "custom:energy-flow-card",
+      "entities": {
+        "solar": "sensor.solar_power",
+        "battery": "sensor.battery_power",
+        "battery_soc": "sensor.battery_soc",
+        "grid": "sensor.grid_power"
+      },
+      "devices": [
+        {
+          "id": "lights",
+          "entity_id": "sensor.lights_power",
+          "name": "Lights",
+          "icon": "mdi:lightbulb"
+        },
+        {
+          "id": "ac",
+          "entity_id": "sensor.ac_power",
+          "name": "Air Conditioning",
+          "icon": "mdi:air-conditioner",
+          "category": "hvac"
+        }
+      ],
+      "categories": [
+        {
+          "id": "hvac",
+          "name": "HVAC",
+          "icon": "mdi:hvac"
+        }
+      ],
+      "update_interval": 2,
+      "show_statistics": true,
+      "warnings": {
+        "battery_low": 20,
+        "grid_import": 5
+      }
+    }
+  ]
+}

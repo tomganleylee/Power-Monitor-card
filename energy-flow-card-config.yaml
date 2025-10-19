@@ -1,0 +1,141 @@
+# Energy Flow Card Configuration
+# Copy this to your Home Assistant dashboard
+
+type: custom:energy-flow-card
+
+# Main Energy Sources
+entities:
+  solar: sensor.givtcp_ce2122g101_pv_power
+  battery: sensor.givtcp_ce2122g101_invertor_power
+  battery_soc: sensor.givtcp_ce2122g101_soc
+  battery_capacity: 16.4  # 16.4 kWh total capacity
+  battery_invert: true   # GivEnergy: negative=charging (set true to invert)
+  grid: sensor.givtcp_ce2122g101_grid_power
+  grid_invert: true      # GivEnergy: negative=importing (set true to invert)
+
+# Device Categories
+# NOTE: Categories work without circuit_entity - they just sum the child devices
+# To track remainder, you need to create the template sensor (see bottom of file)
+categories:
+  - id: networking_servers
+    name: Networking & Servers
+    icon: 🖥️
+    # circuit_entity: sensor.networking_servers_total  # Uncomment after creating template sensor
+
+# Individual Device Monitoring
+# NOTE: Do NOT add total_load here - it's calculated automatically from all devices
+devices:
+  # High Power Devices
+  - id: sockets
+    entity_id: sensor.0xa4c138dc734d8579_power_b
+    name: Sockets
+    icon: 🔌
+    show_when_off: true
+
+  - id: leftover_sockets
+    entity_id: sensor.socket_leftoverpower
+    name: Other Sockets
+    icon: 🔌
+    show_when_off: false
+
+  - id: toms_desktop
+    entity_id: sensor.tumble_dryer_power
+    name: Tom's Desktop
+    icon: 💻
+    show_when_off: false
+
+  # Networking & Servers (grouped in category)
+  - id: home_server
+    entity_id: sensor.home_server_current_consumption
+    name: Home Server
+    icon: 🖥️
+    category: networking_servers
+    show_when_off: true
+
+  - id: network
+    entity_id: sensor.network_power_current_consumption
+    name: Network Equipment
+    icon: 🌐
+    category: networking_servers
+    show_when_off: true
+
+  - id: chia_nas
+    entity_id: sensor.chia_nas_current_consumption
+    name: Chia NAS
+    icon: 💾
+    category: networking_servers
+    show_when_off: true
+
+  - id: fridgez
+    entity_id: sensor.fridgez_power
+    name: Fridge/Freezer
+    icon: 🧊
+    show_when_off: true
+
+  # Medium Power Devices
+  - id: lights
+    entity_id: sensor.0xa4c138d23ac68e84_power_a
+    name: Lights
+    icon: 💡
+    show_when_off: false
+
+  - id: starlink
+    entity_id: sensor.starlink_power
+    name: Starlink
+    icon: 📡
+    show_when_off: true
+
+  # Small Power Devices
+  - id: coffee_machine
+    entity_id: sensor.coffee_machine_power
+    name: Coffee Machine
+    icon: ☕
+    show_when_off: false
+
+  - id: garage_one
+    entity_id: sensor.0xa4c1384607d1c8d2_power
+    name: Garage
+    icon: 🚗
+    show_when_off: false
+
+# Display Options
+show_statistics: false  # Set to true if you want the statistics bar at bottom
+update_interval: 2000  # 2 seconds
+visualization_mode: both  # Options: 'particles', 'sankey', 'both' - use 'both' for best experience
+# No explicit height - defaults to 800px which shows all devices
+
+# Color Theme (optional - using defaults)
+theme:
+  solar_color: '#ffa500'      # Orange for solar
+  battery_color: '#4caf50'    # Green for battery
+  grid_color: '#f44336'       # Red for grid
+
+# Warnings (optional)
+warnings:
+  battery_low: 20              # Warn when battery below 20%
+  grid_import: 3000            # Warn when importing more than 3kW
+
+# ===================================
+# TEMPLATE SENSOR CONFIGURATION
+# ===================================
+# Add this to your configuration.yaml to create the total sensor for the Networking & Servers category
+#
+# template:
+#   - sensor:
+#       - name: "Networking Servers Total"
+#         unique_id: networking_servers_total
+#         unit_of_measurement: "W"
+#         device_class: power
+#         state_class: measurement
+#         state: >
+#           {{
+#             (states('sensor.home_server_current_consumption') | float(0)) +
+#             (states('sensor.network_power_current_consumption') | float(0)) +
+#             (states('sensor.chia_nas_current_consumption') | float(0))
+#           }}
+#
+# After adding this template sensor:
+# 1. Restart Home Assistant or reload template entities
+# 2. The card will show "Networking & Servers" with the total power
+# 3. Click the category to expand and see individual devices
+# 4. Any power difference will appear as "Other Networking & Servers" (remainder)

@@ -1,0 +1,106 @@
+# Energy Flow Card with Device Categories
+# Devices are grouped into collapsible categories for better organization
+
+type: custom:energy-flow-card
+
+# Main Energy Sources
+entities:
+  solar: sensor.solar_power
+  battery: sensor.battery_power
+  battery_soc: sensor.battery_soc
+  battery_capacity: 13.5
+  grid: sensor.grid_power
+
+# Device Categories
+# Click on a category node to expand/collapse the devices within it
+categories:
+  - id: kitchen
+    name: Kitchen Appliances
+    icon: 🍳
+  - id: entertainment
+    name: Entertainment
+    icon: 🎮
+  - id: hvac
+    name: HVAC
+    icon: ❄️
+  - id: office
+    name: Home Office
+    icon: 💼
+
+# Individual Devices (assigned to categories)
+devices:
+  # Kitchen Appliances
+  - id: fridge
+    entity_id: sensor.fridge_power
+    name: Refrigerator
+    icon: 🧊
+    category: kitchen
+    show_when_off: true
+  - id: dishwasher
+    entity_id: sensor.dishwasher_power
+    name: Dishwasher
+    icon: 🍽️
+    category: kitchen
+    show_when_off: false
+  - id: oven
+    entity_id: sensor.oven_power
+    name: Oven
+    icon: 🔥
+    category: kitchen
+    show_when_off: false
+
+  # Entertainment
+  - id: tv_living
+    entity_id: sensor.tv_living_room_power
+    name: Living Room TV
+    icon: 📺
+    category: entertainment
+    show_when_off: false
+  - id: console
+    entity_id: sensor.playstation_power
+    name: PlayStation
+    icon: 🎮
+    category: entertainment
+    show_when_off: false
+
+  # HVAC
+  - id: ac_main
+    entity_id: sensor.air_conditioner_power
+    name: Air Conditioner
+    icon: ❄️
+    category: hvac
+    show_when_off: true
+  - id: heat_pump
+    entity_id: sensor.heat_pump_power
+    name: Heat Pump
+    icon: 🔥
+    category: hvac
+    show_when_off: true
+
+  # Home Office
+  - id: pc
+    entity_id: sensor.desktop_power
+    name: Desktop PC
+    icon: 🖥️
+    category: office
+    show_when_off: false
+  - id: monitor
+    entity_id: sensor.monitor_power
+    name: Monitor
+    icon: 📟
+    category: office
+    show_when_off: false
+
+  # Standalone devices (not in any category)
+  - id: ev_charger
+    entity_id: sensor.ev_charger_power
+    name: EV Charger
+    icon: 🚗
+    show_when_off: false
+
+# Visualization Settings
+visualization_mode: particles
+show_statistics: true
+update_interval: 2000
+min_height: 500
+max_height: 800

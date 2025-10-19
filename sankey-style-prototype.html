@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sankey Style Energy Flow - Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a1628 0%, #1a2332 100%);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        #sankeyCanvas {
+            width: 100%;
+            height: 600px;
+            background: radial-gradient(ellipse at center, rgba(30, 50, 80, 0.3) 0%, rgba(10, 20, 35, 0.8) 100%);
+            border-radius: 8px;
+            box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #64b5f6;
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .control-group input {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            width: 120px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            background: #64b5f6;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #42a5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔋 Sankey Style Energy Flow</h1>
+        <p class="subtitle">Flow width represents power magnitude • Left sources = Right consumption</p>
+
+        <canvas id="sankeyCanvas"></canvas>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">TOTAL GENERATION</div>
+                <div class="stat-value" id="totalGen">0 W</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">TOTAL CONSUMPTION</div>
+                <div class="stat-value" id="totalCons">0 W</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">BALANCE</div>
+                <div class="stat-value" id="balance">0 W</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Solar Power (W)</label>
+                <input type="number" id="solarInput" value="1300" step="100">
+            </div>
+            <div class="control-group">
+                <label>Battery Power (W)</label>
+                <input type="number" id="batteryInput" value="-81" step="10">
+            </div>
+            <div class="control-group">
+                <label>Grid Power (W)</label>
+                <input type="number" id="gridInput" value="1" step="10">
+            </div>
+            <button onclick="updateFlows()">Update Flows</button>
+            <button onclick="randomize()">Randomize</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('sankeyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            drawSankey();
+        });
+
+        // Sample device data
+        const devices = [
+            { name: 'Total Load', power: 534, icon: '🏠' },
+            { name: 'Sockets', power: 690, icon: '🔌' },
+            { name: 'Other Sockets', power: 256, icon: '🔌' },
+            { name: 'Network', power: 156, icon: '🌐' },
+            { name: 'Fridge', power: 144, icon: '🧊' },
+            { name: 'Lights', power: 67, icon: '💡' },
+            { name: 'Starlink', power: 22, icon: '📡' }
+        ];
+
+        function drawSankey() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // Get power values
+            const solar = parseFloat(document.getElementById('solarInput').value) || 0;
+            const battery = parseFloat(document.getElementById('batteryInput').value) || 0;
+            const grid = parseFloat(document.getElementById('gridInput').value) || 0;
+
+            const batteryCharging = battery < 0;
+            const batteryDischarging = battery > 0;
+            const gridImporting = grid > 0;
+            const gridExporting = grid < 0;
+
+            // Calculate total generation and consumption
+            const totalGeneration = Math.max(0, solar) + Math.max(0, battery) + Math.max(0, grid);
+            const totalConsumption = devices.reduce((sum, d) => sum + d.power, 0);
+
+            // Update stats
+            document.getElementById('totalGen').textContent = Math.round(totalGeneration) + ' W';
+            document.getElementById('totalCons').textContent = Math.round(totalConsumption) + ' W';
+            document.getElementById('balance').textContent = Math.round(totalGeneration - totalConsumption) + ' W';
+
+            // Source positions (left side)
+            const sourceX = width * 0.15;
+            const solarY = height * 0.2;
+            const batteryY = height * 0.5;
+            const gridY = height * 0.8;
+
+            // Hub position (center)
+            const hubX = width * 0.5;
+            const hubY = height * 0.5;
+
+            // Device positions (right side)
+            const deviceX = width * 0.85;
+            const deviceStartY = height * 0.15;
+            const deviceSpacing = (height * 0.7) / Math.max(1, devices.length - 1);
+
+            // Power to width scale: 1W = 0.05px, max 100px width
+            const powerToWidth = (watts) => Math.min(Math.abs(watts) * 0.05, 100);
+
+            // Draw Sankey flows from sources to hub
+            const flows = [];
+
+            // Solar flows
+            if (solar > 10) {
+                flows.push({
+                    from: { x: sourceX, y: solarY },
+                    to: { x: hubX, y: hubY },
+                    width: powerToWidth(solar),
+                    color: 'rgba(255, 165, 0, 0.6)', // Orange
+                    label: Math.round(solar) + 'W'
+                });
+            }
+
+            // Battery flows
+            if (batteryDischarging) {
+                flows.push({
+                    from: { x: sourceX, y: batteryY },
+                    to: { x: hubX, y: hubY },
+                    width: powerToWidth(battery),
+                    color: 'rgba(76, 175, 80, 0.6)', // Green
+                    label: Math.round(battery) + 'W'
+                });
+            } else if (batteryCharging) {
+                flows.push({
+                    from: { x: hubX, y: hubY },
+                    to: { x: sourceX, y: batteryY },
+                    width: powerToWidth(Math.abs(battery)),
+                    color: 'rgba(76, 175, 80, 0.6)', // Green
+                    label: Math.round(Math.abs(battery)) + 'W'
+                });
+            }
+
+            // Grid flows
+            if (gridImporting) {
+                flows.push({
+                    from: { x: sourceX, y: gridY },
+                    to: { x: hubX, y: hubY },
+                    width: powerToWidth(grid),
+                    color: 'rgba(244, 67, 54, 0.6)', // Red
+                    label: Math.round(grid) + 'W'
+                });
+            } else if (gridExporting) {
+                flows.push({
+                    from: { x: hubX, y: hubY },
+                    to: { x: sourceX, y: gridY },
+                    width: powerToWidth(Math.abs(grid)),
+                    color: 'rgba(244, 67, 54, 0.6)', // Red
+                    label: Math.round(Math.abs(grid)) + 'W'
+                });
+            }
+
+            // Draw flows from hub to devices
+            devices.forEach((device, i) => {
+                if (device.power > 5) {
+                    const deviceY = deviceStartY + (i * deviceSpacing);
+                    flows.push({
+                        from: { x: hubX, y: hubY },
+                        to: { x: deviceX, y: deviceY },
+                        width: powerToWidth(device.power),
+                        color: 'rgba(100, 181, 246, 0.4)', // Blue
+                        label: Math.round(device.power) + 'W'
+                    });
+                }
+            });
+
+            // Draw all flows
+            flows.forEach(flow => {
+                drawSankeyPath(flow.from, flow.to, flow.width, flow.color, flow.label);
+            });
+
+            // Draw source nodes
+            drawNode(sourceX, solarY, 50, '☀️', 'Solar', solar + 'W', '#ffa500', solar > 10);
+            drawNode(sourceX, batteryY, 45, '🔋', 'Battery', Math.abs(battery) + 'W', '#4caf50', Math.abs(battery) > 10);
+            drawNode(sourceX, gridY, 45, '⚡', 'Grid', Math.abs(grid) + 'W', '#f44336', Math.abs(grid) > 10);
+
+            // Draw hub
+            drawNode(hubX, hubY, 35, '🏠', 'Hub', '', '#64b5f6', true);
+
+            // Draw device nodes
+            devices.forEach((device, i) => {
+                const deviceY = deviceStartY + (i * deviceSpacing);
+                const isActive = device.power > 5;
+                drawNode(deviceX, deviceY, 30, device.icon, device.name, device.power + 'W', '#64b5f6', isActive);
+            });
+        }
+
+        function drawSankeyPath(from, to, width, color, label) {
+            ctx.save();
+
+            // Create gradient for flow
+            const gradient = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, color.replace('0.6', '0.3'));
+
+            // Calculate control points for smooth curve
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const cp1x = from.x + dx * 0.5;
+            const cp1y = from.y;
+            const cp2x = to.x - dx * 0.5;
+            const cp2y = to.y;
+
+            // Draw thick curved path
+            ctx.lineWidth = width;
+            ctx.strokeStyle = gradient;
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
+
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, to.x, to.y);
+            ctx.stroke();
+
+            // Draw label at midpoint
+            const midX = (from.x + to.x) / 2;
+            const midY = (from.y + to.y) / 2;
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, midX, midY - 10);
+
+            ctx.restore();
+        }
+
+        function drawNode(x, y, radius, icon, label, value, color, isActive) {
+            ctx.save();
+
+            // Outer glow
+            if (isActive) {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = color;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.arc(x, y, radius + 8, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+
+            // Node circle
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 25, 40, 0.85)';
+            ctx.fill();
+
+            // Border
+            if (isActive) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = color;
+            }
+            ctx.strokeStyle = isActive ? color : 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Icon
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `${radius * 0.8}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(icon, x, y);
+
+            // Label above
+            ctx.font = '12px sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fillText(label, x, y - radius - 15);
+
+            // Value below
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillStyle = isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.5)';
+            ctx.fillText(value, x, y + radius + 20);
+
+            ctx.restore();
+        }
+
+        function updateFlows() {
+            drawSankey();
+        }
+
+        function randomize() {
+            document.getElementById('solarInput').value = Math.floor(Math.random() * 3000);
+            document.getElementById('batteryInput').value = Math.floor(Math.random() * 2000 - 1000);
+            document.getElementById('gridInput').value = Math.floor(Math.random() * 1000 - 500);
+            updateFlows();
+        }
+
+        // Initial draw
+        drawSankey();
+
+        // Auto-update every 2 seconds with slight variations
+        setInterval(() => {
+            const solar = parseFloat(document.getElementById('solarInput').value);
+            const battery = parseFloat(document.getElementById('batteryInput').value);
+            const grid = parseFloat(document.getElementById('gridInput').value);
+
+            // Add slight random variations
+            document.getElementById('solarInput').value = Math.max(0, solar + (Math.random() - 0.5) * 100);
+            document.getElementById('batteryInput').value = battery + (Math.random() - 0.5) * 20;
+            document.getElementById('gridInput').value = grid + (Math.random() - 0.5) * 10;
+
+            drawSankey();
+        }, 2000);
+    </script>
+</body>
+</html>

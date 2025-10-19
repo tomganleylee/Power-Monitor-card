@@ -1,0 +1,63 @@
+# Energy Flow Card with Sankey Diagram Visualization
+# Uses flowing colored bands instead of particles to show energy flow
+
+type: custom:energy-flow-card
+
+# Main Energy Sources
+entities:
+  solar: sensor.solar_power
+  battery: sensor.battery_power
+  battery_soc: sensor.battery_soc
+  battery_capacity: 13.5
+  grid: sensor.grid_power
+
+# Devices
+devices:
+  - id: hvac
+    entity_id: sensor.hvac_power
+    name: HVAC System
+    icon: ❄️
+    show_when_off: true
+  - id: hot_water
+    entity_id: sensor.hot_water_heater_power
+    name: Hot Water Heater
+    icon: 💧
+    show_when_off: true
+  - id: ev_charger
+    entity_id: sensor.ev_charger_power
+    name: EV Charger
+    icon: 🚗
+    show_when_off: false
+  - id: pool_pump
+    entity_id: sensor.pool_pump_power
+    name: Pool Pump
+    icon: 🏊
+    show_when_off: false
+  - id: lighting
+    entity_id: sensor.total_lights_power
+    name: All Lights
+    icon: 💡
+    show_when_off: true
+  - id: appliances
+    entity_id: sensor.appliances_power
+    name: Appliances
+    icon: 🏠
+    show_when_off: true
+
+# Visualization Settings
+visualization_mode: sankey  # Use Sankey flow diagram instead of particles
+show_statistics: true
+update_interval: 2000
+min_height: 450
+max_height: 750
+
+# Warning Thresholds
+warnings:
+  battery_low: 20
+  grid_import: 4000
+
+# Custom Theme Colors
+theme:
+  solar_color: '#FFA726'
+  battery_color: '#4CAF50'
+  grid_color: '#F44336'
