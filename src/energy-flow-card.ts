@@ -559,23 +559,12 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const canvasWidth = this.canvas?.width ?? 800;
     const canvasHeight = this.canvas?.height ?? 1000;
 
-    // Calculate total visible items (categories + children + standalones)
+    // Calculate total visible items (categories + standalones only, children are to the right)
     let totalVisibleItems = 0;
     for (const node of nodes) {
       if (!node.isVisible) continue;
-
-      const isCategory = this.categoryNodes.has(node.id);
-      const isCollapsed = this.collapsedCategories.has(node.id);
-
-      totalVisibleItems++; // Count the category/device itself
-
-      if (isCategory && !isCollapsed && node.children) {
-        // Only add ONE extra row for all horizontal children
-        const hasVisibleChildren = node.children.some(c => c.isVisible);
-        if (hasVisibleChildren) {
-          totalVisibleItems++; // One row for all horizontal children
-        }
-      }
+      totalVisibleItems++; // Count categories and standalone devices only
+      // Children don't take vertical space - they're positioned to the right
     }
 
     // Dynamic spacing calculation
@@ -589,17 +578,15 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       ? Math.max(minSpacing, availableHeight / totalVisibleItems)
       : 100;
 
-    // Use calculated spacing for both categories and children
+    // Use calculated spacing for categories and devices
     const categorySpacing = calculatedSpacing;
-    const childRowSpacing = calculatedSpacing;  // Full spacing for horizontal child row
 
-    // Single column layout - zigzag between right and far-right
-    const rightX = canvasWidth * 0.75;  // Closer position (75% from left)
-    const farRightX = canvasWidth * 0.90;  // Farther position (90% from left)
-    const startY = topMargin;  // Start from top with margin
+    // Position categories/devices in single column
+    const categoryX = canvasWidth * 0.70;  // Category position (70% from left)
+    const childBaseX = canvasWidth * 0.85;  // Children start position (85% from left)
+    const startY = topMargin;
 
     let currentY = startY;
-    let visibleIndex = 0;
 
     for (const node of nodes) {
       if (!node.isVisible) continue;
@@ -607,45 +594,31 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       const isCategory = this.categoryNodes.has(node.id);
       const isCollapsed = this.collapsedCategories.has(node.id);
 
-      if (isCategory) {
-        // Category nodes - zigzag between right and far-right
-        node.x = (visibleIndex % 2 === 0) ? rightX : farRightX;
-        node.y = currentY;
-        currentY += categorySpacing;
-        visibleIndex++;
+      // Position category or standalone device
+      node.x = categoryX;
+      node.y = currentY;
 
-        // Show children if expanded - HORIZONTAL LAYOUT
-        if (!isCollapsed && node.children) {
-          const visibleChildren = node.children.filter(c => c.isVisible);
+      if (isCategory && !isCollapsed && node.children) {
+        // Position children horizontally to the RIGHT of category at same Y level
+        const visibleChildren = node.children.filter(c => c.isVisible);
 
-          if (visibleChildren.length > 0) {
-            // Calculate horizontal spacing for children
-            const childRadius = 30;  // Standard child node radius
-            const childHorizontalSpacing = childRadius * 2.5;  // Space between children horizontally
-            const totalChildWidth = visibleChildren.length * childHorizontalSpacing;
+        if (visibleChildren.length > 0) {
+          const childVerticalSpacing = 65;  // Vertical spacing between children
+          const totalChildHeight = visibleChildren.length * childVerticalSpacing;
 
-            // Start children centered below parent
-            const childStartX = node.x - (totalChildWidth / 2) + (childHorizontalSpacing / 2);
-            const childY = currentY;  // All children on same horizontal line
+          // Center children vertically around the category's Y position
+          const childStartY = node.y - (totalChildHeight / 2) + (childVerticalSpacing / 2);
 
-            // Position each child horizontally
-            visibleChildren.forEach((child, index) => {
-              child.x = childStartX + (index * childHorizontalSpacing);
-              child.y = childY;
-            });
-
-            // Move to next category row after horizontal children
-            currentY += childRowSpacing;
-            visibleIndex++;
-          }
+          // Position each child vertically to the right
+          visibleChildren.forEach((child, index) => {
+            child.x = childBaseX;
+            child.y = childStartY + (index * childVerticalSpacing);
+          });
         }
-      } else {
-        // Standalone device (not in category) - zigzag between right and far-right
-        node.x = (visibleIndex % 2 === 0) ? rightX : farRightX;
-        node.y = currentY;
-        currentY += categorySpacing;
-        visibleIndex++;
       }
+
+      // Move to next row
+      currentY += categorySpacing;
     }
   }
 
@@ -867,7 +840,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.19', 10, 10);
+    ctx.fillText('v1.0.20', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1146,16 +1119,15 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
               }
             }
 
-            // Render remainder node if exists (positioned at end of horizontal child row)
+            // Render remainder node if exists (positioned below last child)
             if (device.calculatedRemainder && device.calculatedRemainder > 10) {
               const lastChild = device.children[device.children.length - 1];
-              const childRadius = 30;
-              const childHorizontalSpacing = childRadius * 2.5;
+              const childVerticalSpacing = 65;
 
-              // Position remainder to the right of last child
+              // Position remainder below the last child
               this.nodeRenderer.renderRemainderNode(
-                lastChild ? lastChild.x + childHorizontalSpacing : device.x + 60,
-                lastChild ? lastChild.y : device.y + 80,
+                lastChild ? lastChild.x : device.x + 120,
+                lastChild ? lastChild.y + childVerticalSpacing : device.y + 80,
                 device.calculatedRemainder
               );
             }
@@ -1278,7 +1250,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.19';
+const VERSION = '1.0.20';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
