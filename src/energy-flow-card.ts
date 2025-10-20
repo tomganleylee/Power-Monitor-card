@@ -584,7 +584,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Position categories/devices with zigzag pattern
     const categoryLeftX = canvasWidth * 0.70;   // Left position (70% from left)
     const categoryRightX = canvasWidth * 0.80;  // Right position (80% from left)
-    const childBaseX = canvasWidth * 0.90;      // Children position (90% from left)
+    const childLeftX = canvasWidth * 0.88;      // Children left position (88% from left)
+    const childRightX = canvasWidth * 0.94;     // Children right position (94% from left)
     const startY = topMargin;
 
     // Margins for bounds checking
@@ -619,9 +620,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
           // Ensure first child is within top bounds
           childStartY = Math.max(topMargin, childStartY);
 
-          // Position each child vertically to the right
+          // Position each child vertically to the right with zigzag
           visibleChildren.forEach((child, index) => {
-            child.x = Math.min(childBaseX, canvasWidth - rightMargin);  // Keep within right bounds
+            // Zigzag children between two X positions
+            const childX = (index % 2 === 0) ? childLeftX : childRightX;
+            child.x = Math.min(childX, canvasWidth - rightMargin);  // Keep within right bounds
             child.y = Math.min(childStartY + (index * childVerticalSpacing), maxY);  // Keep within bottom bounds
           });
         }
@@ -851,7 +854,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.22', 10, 10);
+    ctx.fillText('v1.0.23', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1261,7 +1264,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.22';
+const VERSION = '1.0.23';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',

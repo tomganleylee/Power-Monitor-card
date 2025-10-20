@@ -82,33 +82,46 @@ export class NodeRenderer {
     ctx.setLineDash([]);
     ctx.shadowBlur = 0;
 
-    // Draw icon with glow
+    // Draw icon with glow at top of circle
     ctx.shadowBlur = 8;
     ctx.shadowColor = node.isActive ? node.color : 'rgba(255, 255, 255, 0.5)';
     ctx.fillStyle = '#ffffff';
-    ctx.font = `${node.radius}px sans-serif`;
+    ctx.font = `${node.radius * 0.7}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.icon, node.x, node.y);
+    ctx.fillText(node.icon, node.x, node.y - node.radius * 0.2);
     ctx.shadowBlur = 0;
+
+    // Draw power label INSIDE circle below icon (except for battery)
+    const formattedPower = formatPower(Math.abs(node.powerWatts));
+    const powerText = formatDisplay(formattedPower);
+
+    if (node.type !== 'battery') {
+      // For non-battery nodes, show power inside the circle
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillStyle = node.isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.5)';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(powerText, node.x, node.y + node.radius * 0.25);
+      ctx.shadowBlur = 0;
+    } else {
+      // For battery, keep power below (need space for battery indicator)
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillStyle = node.isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.5)';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(powerText, node.x, node.y + node.radius + 12);
+      ctx.shadowBlur = 0;
+    }
 
     // Draw battery charge indicator if applicable
     if (node.type === 'battery' && batterySOC !== undefined) {
       this.renderBatteryIndicator(node, batterySOC, batteryCapacity, batteryTimeRemaining);
     }
-
-    // Draw power label below node with glow
-    const formattedPower = formatPower(Math.abs(node.powerWatts));
-    const powerText = formatDisplay(formattedPower);
-
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-    ctx.fillStyle = node.isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.5)';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(powerText, node.x, node.y + node.radius + 12);
-    ctx.shadowBlur = 0;
 
     // Draw type label above node
     const typeLabel = this.getTypeLabel(node.type);
@@ -173,27 +186,27 @@ export class NodeRenderer {
     ctx.setLineDash([]);
     ctx.shadowBlur = 0;
 
-    // Draw icon with glow
+    // Draw icon with glow at top of circle
     ctx.shadowBlur = 6;
     ctx.shadowColor = isActive ? color : 'rgba(255, 255, 255, 0.3)';
     ctx.fillStyle = '#ffffff';
-    ctx.font = `${node.radius * 0.8}px sans-serif`;
+    ctx.font = `${node.radius * 0.6}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.icon, node.x, node.y);
+    ctx.fillText(node.icon, node.x, node.y - node.radius * 0.25);
     ctx.shadowBlur = 0;
 
-    // Draw power label below node
+    // Draw power label INSIDE circle below icon
     const formattedPower = formatPower(node.powerWatts);
     const powerText = formatDisplay(formattedPower);
 
     ctx.shadowBlur = 3;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.fillStyle = isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(powerText, node.x, node.y + node.radius + 8);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(powerText, node.x, node.y + node.radius * 0.3);
     ctx.shadowBlur = 0;
 
     // Draw device name above node
