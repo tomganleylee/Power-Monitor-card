@@ -87,8 +87,26 @@ export class SensorManager {
   public getPercentageValue(entityId: string): number {
     const state = this.sensorStates.get(entityId);
 
-    if (!state || state.isUnavailable || state.isStale) {
+    if (!state) {
+      console.warn(`[SensorManager] Percentage sensor not found: ${entityId}`);
       return 0;
+    }
+
+    if (state.isUnavailable) {
+      console.warn(`[SensorManager] Percentage sensor unavailable: ${entityId}, state:`, state);
+      // Try to use last valid value if available
+      if (state.lastValidValue !== undefined) {
+        return Math.max(0, Math.min(100, state.lastValidValue));
+      }
+      return 0;
+    }
+
+    if (state.isStale) {
+      console.warn(`[SensorManager] Percentage sensor stale: ${entityId}, using last valid value`);
+      // Use last valid value for stale sensors
+      if (state.lastValidValue !== undefined) {
+        return Math.max(0, Math.min(100, state.lastValidValue));
+      }
     }
 
     return Math.max(0, Math.min(100, state.value));
