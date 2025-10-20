@@ -78,9 +78,13 @@ export class SankeyRenderer {
     const g = rgbaMatch ? parseInt(rgbaMatch[2]) : 181;
     const b = rgbaMatch ? parseInt(rgbaMatch[3]) : 246;
 
-    // Create smooth flowing gradient without pulsing
-    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);      // Consistent opacity
-    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.7)`);      // Consistent opacity
+    // Create animated flowing gradient with traveling bright pulse
+    // This creates a repeating pattern: dim -> bright -> dim
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.3)`);      // Dim tail
+    gradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.5)`);    // Building up
+    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.9)`);    // Bright pulse (center)
+    gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.5)`);    // Fading out
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.3)`);      // Dim head
 
     // Calculate Bezier curve control points
     const cp1x = path.from.x + dx * 0.5;
