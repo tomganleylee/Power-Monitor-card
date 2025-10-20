@@ -581,12 +581,19 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Use calculated spacing for categories and devices
     const categorySpacing = calculatedSpacing;
 
-    // Position categories/devices in single column
-    const categoryX = canvasWidth * 0.70;  // Category position (70% from left)
-    const childBaseX = canvasWidth * 0.85;  // Children start position (85% from left)
+    // Position categories/devices with zigzag pattern
+    const categoryLeftX = canvasWidth * 0.70;   // Left position (70% from left)
+    const categoryRightX = canvasWidth * 0.80;  // Right position (80% from left)
+    const childBaseX = canvasWidth * 0.90;      // Children position (90% from left)
     const startY = topMargin;
 
+    // Margins for bounds checking
+    const nodeRadius = 35;  // Max node radius
+    const rightMargin = 50; // Keep nodes away from edge
+    const maxY = canvasHeight - bottomMargin - nodeRadius;
+
     let currentY = startY;
+    let visibleIndex = 0;
 
     for (const node of nodes) {
       if (!node.isVisible) continue;
@@ -594,12 +601,12 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       const isCategory = this.categoryNodes.has(node.id);
       const isCollapsed = this.collapsedCategories.has(node.id);
 
-      // Position category or standalone device
-      node.x = categoryX;
-      node.y = currentY;
+      // Position category or standalone device with zigzag
+      node.x = (visibleIndex % 2 === 0) ? categoryLeftX : categoryRightX;
+      node.y = Math.min(currentY, maxY);  // Ensure within bounds
 
       if (isCategory && !isCollapsed && node.children) {
-        // Position children horizontally to the RIGHT of category at same Y level
+        // Position children vertically to the RIGHT of category
         const visibleChildren = node.children.filter(c => c.isVisible);
 
         if (visibleChildren.length > 0) {
@@ -607,18 +614,22 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
           const totalChildHeight = visibleChildren.length * childVerticalSpacing;
 
           // Center children vertically around the category's Y position
-          const childStartY = node.y - (totalChildHeight / 2) + (childVerticalSpacing / 2);
+          let childStartY = node.y - (totalChildHeight / 2) + (childVerticalSpacing / 2);
+
+          // Ensure first child is within top bounds
+          childStartY = Math.max(topMargin, childStartY);
 
           // Position each child vertically to the right
           visibleChildren.forEach((child, index) => {
-            child.x = childBaseX;
-            child.y = childStartY + (index * childVerticalSpacing);
+            child.x = Math.min(childBaseX, canvasWidth - rightMargin);  // Keep within right bounds
+            child.y = Math.min(childStartY + (index * childVerticalSpacing), maxY);  // Keep within bottom bounds
           });
         }
       }
 
       // Move to next row
       currentY += categorySpacing;
+      visibleIndex++;
     }
   }
 
@@ -840,7 +851,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.20', 10, 10);
+    ctx.fillText('v1.0.21', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1250,7 +1261,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.20';
+const VERSION = '1.0.21';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
