@@ -372,7 +372,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const nodes: EnergySourceNode[] = [];
     const now = Date.now();
 
-    // Calculate positions: Triangle layout - Grid, Solar, Battery form a triangle on the left
+    // Calculate positions: Compressed triangle layout - sources on left, more space for devices
     const canvasHeight = this.canvas?.height ?? 500;
     const canvasWidth = this.canvas?.width ?? 800;
 
@@ -393,7 +393,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.grid_color ?? '#f44336',
         icon: flowDirection === 'export' ? '⚡⬆' : flowDirection === 'import' ? '⚡⬇' : '⚡',
-        x: canvasWidth * 0.10,  // 10% from left (left vertex)
+        x: canvasWidth * 0.08,  // 8% from left (compressed left - was 10%)
         y: canvasHeight * 0.50,  // Middle (50% from top)
         radius: 45  // Medium
       });
@@ -415,7 +415,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.solar_color ?? '#ffa500',
         icon: '☀️',
-        x: canvasWidth * 0.30,  // 30% from left (top vertex)
+        x: canvasWidth * 0.22,  // 22% from left (compressed - was 30%)
         y: canvasHeight * 0.15,  // Top (15% from top)
         radius: 50  // Large
       });
@@ -438,7 +438,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.battery_color ?? '#4caf50',
         icon: flowDirection === 'charging' ? '🔋⬆' : flowDirection === 'discharging' ? '🔋⬇' : '🔋',
-        x: canvasWidth * 0.40,  // 40% from left (below grid-hub line)
+        x: canvasWidth * 0.22,  // 22% from left (compressed - was 40%)
         y: canvasHeight * 0.70,  // Bottom-middle (70% from top - below grid/hub)
         radius: 45  // Medium
       });
@@ -606,11 +606,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Use calculated spacing for categories and devices
     const categorySpacing = calculatedSpacing;
 
-    // Position categories/devices with zigzag pattern
-    const categoryLeftX = canvasWidth * 0.70;   // Left position (70% from left)
-    const categoryRightX = canvasWidth * 0.80;  // Right position (80% from left)
-    const childLeftX = canvasWidth * 0.88;      // Children left position (88% from left)
-    const childRightX = canvasWidth * 0.94;     // Children right position (94% from left)
+    // Position categories/devices with zigzag pattern (more space now!)
+    const categoryLeftX = canvasWidth * 0.55;   // Left position (55% from left - was 70%)
+    const categoryRightX = canvasWidth * 0.68;  // Right position (68% from left - was 80%)
+    const childLeftX = canvasWidth * 0.80;      // Children left position (80% from left - was 88%)
+    const childRightX = canvasWidth * 0.92;     // Children right position (92% from left - was 94%)
     const startY = topMargin;
 
     // Margins for bounds checking
@@ -879,11 +879,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.27', 10, 10);
+    ctx.fillText('v1.0.28', 10, 10);
     ctx.restore();
 
-    // Get hub position (60% from left, between battery and devices)
-    const hubX = this.canvas.width * 0.60;
+    // Get hub position (compressed left - 40% from left, between sources and devices)
+    const hubX = this.canvas.width * 0.40;
     const hubY = this.canvas.height / 2;
 
     // Calculate energy flows first (needed for all visualization modes)
@@ -1289,7 +1289,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.27';
+const VERSION = '1.0.28';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
