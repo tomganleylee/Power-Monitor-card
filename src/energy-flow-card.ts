@@ -372,11 +372,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const nodes: EnergySourceNode[] = [];
     const now = Date.now();
 
-    // Calculate positions: Solar top, Grid left, Battery bottom
+    // Calculate positions: Triangle layout - Grid, Solar, Battery form a triangle on the left
     const canvasHeight = this.canvas?.height ?? 500;
     const canvasWidth = this.canvas?.width ?? 800;
 
-    // Grid node - LEFT (far left position)
+    // Grid node - LEFT VERTEX (far left, middle height)
     if (this.config.entities?.grid) {
       const gridPower = this.sensorManager?.getPowerValue(this.config.entities.grid) ?? 0;
       const sensorState = this.sensorManager?.getSensorState(this.config.entities.grid);
@@ -393,13 +393,13 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.grid_color ?? '#f44336',
         icon: flowDirection === 'export' ? '⚡⬆' : flowDirection === 'import' ? '⚡⬇' : '⚡',
-        x: canvasWidth * 0.10,  // 10% from left (farthest left)
-        y: canvasHeight * 0.50,  // Middle
+        x: canvasWidth * 0.10,  // 10% from left (left vertex)
+        y: canvasHeight * 0.50,  // Middle (50% from top)
         radius: 45  // Medium
       });
     }
 
-    // Solar node - TOP-MIDDLE (between Grid and Hub)
+    // Solar node - TOP VERTEX (top of triangle)
     if (this.config.entities?.solar) {
       const solarPower = this.sensorManager?.getPowerValue(this.config.entities.solar) ?? 0;
       const sensorState = this.sensorManager?.getSensorState(this.config.entities.solar);
@@ -415,13 +415,13 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.solar_color ?? '#ffa500',
         icon: '☀️',
-        x: canvasWidth * 0.30,  // 30% from left (between Grid and Hub)
-        y: canvasHeight * 0.20,  // Top (20% from top)
+        x: canvasWidth * 0.30,  // 30% from left (top vertex)
+        y: canvasHeight * 0.15,  // Top (15% from top)
         radius: 50  // Large
       });
     }
 
-    // Battery node - BOTTOM-MIDDLE (between Grid and Hub)
+    // Battery node - RIGHT VERTEX (right side, middle height - level with Grid)
     if (this.config.entities?.battery) {
       const batteryPower = this.sensorManager?.getPowerValue(this.config.entities.battery) ?? 0;
       const sensorState = this.sensorManager?.getSensorState(this.config.entities.battery);
@@ -438,8 +438,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.battery_color ?? '#4caf50',
         icon: flowDirection === 'charging' ? '🔋⬆' : flowDirection === 'discharging' ? '🔋⬇' : '🔋',
-        x: canvasWidth * 0.30,  // 30% from left (between Grid and Hub)
-        y: canvasHeight * 0.70,  // Bottom-middle (70% from top)
+        x: canvasWidth * 0.50,  // 50% from left (right vertex - between sources and hub)
+        y: canvasHeight * 0.50,  // Middle (50% from top - level with Grid)
         radius: 45  // Medium
       });
     }
@@ -545,6 +545,31 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Add standalone devices (not in any category)
     const standaloneDevices = deviceNodes.filter(d => !d.categoryId && !categorizedDeviceIds.has(d.id));
     nodes.push(...standaloneDevices);
+
+    // Calculate unmonitored power and add as a device if significant
+    const totalMonitoredPower = nodes.reduce((sum, node) => sum + node.powerWatts, 0);
+    const totalHubLoad = this.sourceNodes.reduce((sum, node) => sum + node.powerWatts, 0);
+    const unmonitoredPower = Math.max(0, totalHubLoad - totalMonitoredPower);
+
+    // Only show unmonitored device if power is > 50W (configurable threshold)
+    if (unmonitoredPower > 50) {
+      const unmonitoredNode: ConsumptionDeviceNode = {
+        id: 'unmonitored',
+        entityId: 'calculated.unmonitored',
+        name: 'Unmonitored',
+        powerWatts: unmonitoredPower,
+        isStale: false,
+        lastUpdated: now,
+        displayValue: String(Math.round(unmonitoredPower)),
+        displayUnit: 'W',
+        icon: '❓',
+        x: 0,
+        y: 0,
+        radius: 30,
+        isVisible: true
+      };
+      nodes.push(unmonitoredNode);
+    }
 
     // Calculate positions in zigzag pattern
     this.positionConsumptionNodes(nodes);
@@ -854,7 +879,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.23', 10, 10);
+    ctx.fillText('v1.0.25', 10, 10);
     ctx.restore();
 
     // Get hub position
@@ -1264,7 +1289,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.23';
+const VERSION = '1.0.25';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',

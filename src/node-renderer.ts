@@ -139,7 +139,7 @@ export class NodeRenderer {
   }
 
   /**
-   * Render a consumption device node
+   * Render a consumption device node (as rectangle)
    * @param node Device node to render
    */
   public renderConsumptionNode(node: ConsumptionDeviceNode): void {
@@ -150,23 +150,28 @@ export class NodeRenderer {
     const isActive = node.powerWatts > 0;
     const color = this.getDeviceColor(node.powerWatts);
 
-    // Draw glowing outer ring effect for active devices
+    // Rectangle dimensions based on radius
+    const width = node.radius * 2;
+    const height = node.radius * 1.6;
+    const x = node.x - width / 2;
+    const y = node.y - height / 2;
+    const cornerRadius = 8;
+
+    // Draw glowing outer rectangle effect for active devices
     if (isActive) {
       ctx.shadowBlur = 15;
       ctx.shadowColor = color;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.globalAlpha = 0.2;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
+      this.roundRect(x - 6, y - 6, width + 12, height + 12, cornerRadius + 3);
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
     }
 
-    // Draw node circle with dark fill
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+    // Draw node rectangle with dark fill
+    this.roundRect(x, y, width, height, cornerRadius);
 
     // Dark fill
     ctx.fillStyle = 'rgba(15, 25, 40, 0.85)';
@@ -186,17 +191,17 @@ export class NodeRenderer {
     ctx.setLineDash([]);
     ctx.shadowBlur = 0;
 
-    // Draw icon with glow at top of circle
+    // Draw icon with glow at top of rectangle
     ctx.shadowBlur = 6;
     ctx.shadowColor = isActive ? color : 'rgba(255, 255, 255, 0.3)';
     ctx.fillStyle = '#ffffff';
     ctx.font = `${node.radius * 0.6}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.icon, node.x, node.y - node.radius * 0.25);
+    ctx.fillText(node.icon, node.x, node.y - height * 0.15);
     ctx.shadowBlur = 0;
 
-    // Draw power label INSIDE circle below icon
+    // Draw power label INSIDE rectangle below icon
     const formattedPower = formatPower(node.powerWatts);
     const powerText = formatDisplay(formattedPower);
 
@@ -206,25 +211,43 @@ export class NodeRenderer {
     ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(powerText, node.x, node.y + node.radius * 0.3);
+    ctx.fillText(powerText, node.x, node.y + height * 0.2);
     ctx.shadowBlur = 0;
 
     // Draw device name above node
     ctx.font = '12px sans-serif';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText(node.name, node.x, node.y - node.radius - 8);
+    ctx.fillText(node.name, node.x, y - 8);
 
     // Draw stale indicator
     if (node.isStale) {
-      this.renderStaleIndicator(node.x, node.y - node.radius - 5);
+      this.renderStaleIndicator(node.x, y - 5);
     }
 
     ctx.restore();
   }
 
   /**
-   * Render a category node (collapsible group)
+   * Helper method to draw rounded rectangle
+   */
+  private roundRect(x: number, y: number, width: number, height: number, radius: number): void {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  /**
+   * Render a category node (collapsible group) as rectangle
    * @param node Category node to render
    * @param isCollapsed Whether the category is collapsed
    */
@@ -236,23 +259,28 @@ export class NodeRenderer {
     const isActive = node.powerWatts > 0;
     const color = this.getDeviceColor(node.powerWatts);
 
-    // Draw glowing outer ring effect for active categories
+    // Rectangle dimensions - slightly larger than regular devices
+    const width = node.radius * 2.2;
+    const height = node.radius * 1.8;
+    const x = node.x - width / 2;
+    const y = node.y - height / 2;
+    const cornerRadius = 10;
+
+    // Draw glowing outer rectangle effect for active categories
     if (isActive) {
       ctx.shadowBlur = 18;
       ctx.shadowColor = color;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
       ctx.globalAlpha = 0.25;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.radius + 8, 0, Math.PI * 2);
+      this.roundRect(x - 8, y - 8, width + 16, height + 16, cornerRadius + 4);
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
     }
 
-    // Draw node circle with dark fill
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+    // Draw node rectangle with dark fill
+    this.roundRect(x, y, width, height, cornerRadius);
 
     // Slightly lighter fill for categories
     ctx.fillStyle = 'rgba(20, 35, 55, 0.9)';
@@ -279,12 +307,12 @@ export class NodeRenderer {
     ctx.font = `${node.radius * 0.9}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.icon, node.x - 5, node.y);
+    ctx.fillText(node.icon, node.x - width * 0.15, node.y);
     ctx.shadowBlur = 0;
 
     // Draw expand/collapse indicator
     const indicatorSize = node.radius * 0.4;
-    const indicatorX = node.x + node.radius * 0.6;
+    const indicatorX = node.x + width * 0.3;
     const indicatorY = node.y;
     ctx.fillStyle = isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
     ctx.font = `${indicatorSize}px sans-serif`;
@@ -300,14 +328,14 @@ export class NodeRenderer {
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(powerText, node.x, node.y + node.radius + 10);
+    ctx.fillText(powerText, node.x, y + height + 10);
     ctx.shadowBlur = 0;
 
     // Draw category name above node
     ctx.font = 'bold 13px sans-serif';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillText(node.name, node.x, node.y - node.radius - 10);
+    ctx.fillText(node.name, node.x, y - 10);
 
     // Draw child count if collapsed
     if (isCollapsed && node.children && node.children.length > 0) {
@@ -315,7 +343,7 @@ export class NodeRenderer {
       const countText = `${activeCount}/${node.children.length}`;
       ctx.font = '10px sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.fillText(countText, node.x, node.y + node.radius + 28);
+      ctx.fillText(countText, node.x, y + height + 28);
     }
 
     ctx.restore();
