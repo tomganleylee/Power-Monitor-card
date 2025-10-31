@@ -421,7 +421,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       });
     }
 
-    // Battery node - RIGHT VERTEX (right side, middle height - level with Grid)
+    // Battery node - BOTTOM VERTEX (below grid-hub line, forms triangle with Solar)
     if (this.config.entities?.battery) {
       const batteryPower = this.sensorManager?.getPowerValue(this.config.entities.battery) ?? 0;
       const sensorState = this.sensorManager?.getSensorState(this.config.entities.battery);
@@ -438,8 +438,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         displayUnit: 'W',
         color: this.config.theme?.battery_color ?? '#4caf50',
         icon: flowDirection === 'charging' ? '🔋⬆' : flowDirection === 'discharging' ? '🔋⬇' : '🔋',
-        x: canvasWidth * 0.40,  // 40% from left (right vertex of triangle, left of hub)
-        y: canvasHeight * 0.50,  // Middle (50% from top - level with Grid)
+        x: canvasWidth * 0.40,  // 40% from left (below grid-hub line)
+        y: canvasHeight * 0.70,  // Bottom-middle (70% from top - below grid/hub)
         radius: 45  // Medium
       });
     }
@@ -879,7 +879,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.26', 10, 10);
+    ctx.fillText('v1.0.27', 10, 10);
     ctx.restore();
 
     // Get hub position (60% from left, between battery and devices)
@@ -1289,7 +1289,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.26';
+const VERSION = '1.0.27';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
