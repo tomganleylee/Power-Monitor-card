@@ -38,33 +38,20 @@ export class SankeyRenderer {
   }
 
   /**
-   * Draw a Sankey flow path between two points with animated gradient
+   * Draw a Sankey flow path between two points with static gradient
    */
   public renderFlow(path: SankeyPath): void {
     const ctx = this.ctx;
     ctx.save();
 
-    // Calculate distance for gradient animation
+    // Calculate path direction
     const dx = path.to.x - path.from.x;
     const dy = path.to.y - path.from.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Create animated gradient with traveling bright pulse
-    // The animation cycles every 2 seconds (speed = 0.5)
-    const speed = 0.5;
-    const offset = (this.animationTime * speed) % 1.0;
-
-    // Calculate gradient points - REVERSED to flow from 'to' to 'from' for correct animation
-    const angle = Math.atan2(dy, dx);
-    const gradientLength = distance * 2; // Make gradient longer for smooth loop
-    const gradientStartX = path.to.x + Math.cos(angle) * gradientLength * offset;
-    const gradientStartY = path.to.y + Math.sin(angle) * gradientLength * offset;
-    const gradientEndX = gradientStartX - Math.cos(angle) * gradientLength;
-    const gradientEndY = gradientStartY - Math.sin(angle) * gradientLength;
-
+    // Create static gradient from source to destination
     const gradient = ctx.createLinearGradient(
-      gradientStartX, gradientStartY,
-      gradientEndX, gradientEndY
+      path.from.x, path.from.y,
+      path.to.x, path.to.y
     );
 
     // Parse base color
@@ -72,19 +59,16 @@ export class SankeyRenderer {
       ? path.color
       : path.color.replace('rgb', 'rgba').replace(')', ', 0.6)');
 
-    // Extract RGB values for smooth gradient
+    // Extract RGB values for gradient
     const rgbaMatch = colorWithAlpha.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
     const r = rgbaMatch ? parseInt(rgbaMatch[1]) : 100;
     const g = rgbaMatch ? parseInt(rgbaMatch[2]) : 181;
     const b = rgbaMatch ? parseInt(rgbaMatch[3]) : 246;
 
-    // Create animated flowing gradient with traveling bright pulse
-    // This creates a repeating pattern: dim -> bright -> dim
-    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.3)`);      // Dim tail
-    gradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, 0.5)`);    // Building up
-    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.9)`);    // Bright pulse (center)
-    gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.5)`);    // Fading out
-    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.3)`);      // Dim head
+    // Create static gradient from source (brighter) to destination (dimmer)
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.7)`);      // Source (brighter)
+    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.6)`);    // Middle
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.5)`);      // Destination (dimmer)
 
     // Calculate Bezier curve control points
     const cp1x = path.from.x + dx * 0.5;
@@ -92,7 +76,7 @@ export class SankeyRenderer {
     const cp2x = path.to.x - dx * 0.5;
     const cp2y = path.to.y;
 
-    // Draw thick curved path with animated gradient
+    // Draw thick curved path with static gradient
     ctx.lineWidth = path.width;
     ctx.strokeStyle = gradient;
     ctx.lineCap = 'round';

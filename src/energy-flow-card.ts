@@ -879,7 +879,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.28', 10, 10);
+    ctx.fillText('v1.0.29', 10, 10);
     ctx.restore();
 
     // Get hub position (compressed left - 40% from left, between sources and devices)
@@ -1289,7 +1289,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.28';
+const VERSION = '1.0.29';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
