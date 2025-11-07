@@ -7,7 +7,10 @@
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "test": "web-test-runner",
+    "test:watch": "web-test-runner --watch",
+    "test:coverage": "web-test-runner --coverage"
   },
   "keywords": [
     "home-assistant",
@@ -24,14 +27,23 @@
     "lit": "^3.0.0"
   },
   "devDependencies": {
+    "@open-wc/testing": "^4.0.0",
     "@rollup/plugin-commonjs": "^28.0.7",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.0",
     "@rollup/plugin-typescript": "^11.0.0",
+    "@types/chai": "^4.3.11",
     "@types/d3-force": "^3.0.10",
+    "@types/mocha": "^10.0.6",
+    "@types/sinon": "^17.0.2",
+    "@web/dev-server-esbuild": "^1.0.1",
+    "@web/test-runner": "^0.18.0",
+    "@web/test-runner-playwright": "^0.11.0",
+    "chai": "^4.3.10",
     "eslint": "^8.0.0",
     "rollup": "^4.0.0",
     "rollup-plugin-filesize": "^10.0.0",
+    "sinon": "^17.0.1",
     "tslib": "^2.8.1",
     "typescript": "^5.0.0"
   }
