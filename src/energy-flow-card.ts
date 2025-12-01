@@ -86,8 +86,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
    * Get config editor element for Home Assistant UI
    * Required for visual editor in card picker
    */
-  public static getConfigElement() {
+  public static async getConfigElement() {
     console.log('[EnergyFlowCard] getConfigElement called');
+    // Wait for the editor custom element to be defined
+    await customElements.whenDefined('energy-flow-card-editor');
+    console.log('[EnergyFlowCard] energy-flow-card-editor is defined, creating element');
     return document.createElement('energy-flow-card-editor');
   }
 
@@ -1256,7 +1259,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.32';
+const VERSION = '1.0.33';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
