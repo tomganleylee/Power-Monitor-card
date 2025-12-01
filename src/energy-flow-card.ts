@@ -1259,7 +1259,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.33';
+const VERSION = '1.0.34';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',

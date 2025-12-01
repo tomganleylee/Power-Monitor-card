@@ -10,23 +10,16 @@ import type { EnergyFlowCardConfig, DeviceConfig, CategoryConfig } from './types
 @customElement('energy-flow-card-editor')
 export class EnergyFlowCardEditor extends LitElement {
   @property({ attribute: false }) public hass?: any;
-
-  // Config can be set via property (HA's preferred method) or setConfig method
-  @property({ attribute: false })
-  public set config(config: EnergyFlowCardConfig) {
-    console.log('[EnergyFlowCardEditor] config property set:', config);
-    this._config = config;
-    this._loadEntities();
-    this._loadCardHelpers();
-  }
-  public get config(): EnergyFlowCardConfig | undefined {
-    return this._config;
-  }
-
   @state() private _config?: EnergyFlowCardConfig;
   @state() private _entities: string[] = [];
   @state() private _selectedTab: 'sources' | 'devices' | 'categories' | 'display' | 'warnings' = 'sources';
   @state() private _helpersLoaded: boolean = false;
+
+  // setConfig is called by HA when the editor is initialized
+  public setConfig(config: EnergyFlowCardConfig): void {
+    console.log('[EnergyFlowCardEditor] setConfig called with:', config);
+    this._config = { ...config };
+  }
 
   static styles = css`
     :host {
@@ -115,22 +108,12 @@ export class EnergyFlowCardEditor extends LitElement {
   `;
 
   /**
-   * Called by Home Assistant to set the configuration
-   */
-  public setConfig(config: EnergyFlowCardConfig): void {
-    console.log('[EnergyFlowCardEditor] setConfig called with:', config);
-    this._config = config;
-    this._loadEntities();
-    this._loadCardHelpers();
-  }
-
-  /**
    * Called when element is connected to DOM
-   * Ensures HA components are loaded
    */
   connectedCallback(): void {
     super.connectedCallback();
     this._loadCardHelpers();
+    this._loadEntities();
   }
 
   /**
@@ -361,14 +344,14 @@ export class EnergyFlowCardEditor extends LitElement {
   }
 
   protected render() {
-    console.log('[EnergyFlowCardEditor] render called, config:', !!this._config, 'hass:', !!this.hass, 'helpersLoaded:', this._helpersLoaded);
+    console.log('[EnergyFlowCardEditor] render called, config:', !!this._config, 'hass:', !!this.hass);
 
-    if (!this._config || !this.hass) {
+    if (!this._config) {
       return html`<div class="card-config">Loading configuration...</div>`;
     }
 
-    if (!this._helpersLoaded) {
-      return html`<div class="card-config">Loading Home Assistant components...</div>`;
+    if (!this.hass) {
+      return html`<div class="card-config">Waiting for Home Assistant...</div>`;
     }
 
     return html`
