@@ -87,38 +87,8 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
    * Required for visual editor in card picker
    */
   public static getConfigElement() {
+    console.log('[EnergyFlowCard] getConfigElement called');
     return document.createElement('energy-flow-card-editor');
-  }
-
-  /**
-   * Get config form schema for Home Assistant UI
-   * Using getConfigForm() instead of getConfigElement() for simpler, more reliable config UI
-   */
-  public static getConfigForm() {
-    return {
-      schema: [
-        { name: '', type: 'grid', schema: [
-          { name: 'entities.solar', label: 'Solar Power Entity', selector: { entity: { domain: 'sensor' } } },
-          { name: 'entities.battery', label: 'Battery Power Entity', selector: { entity: { domain: 'sensor' } } },
-          { name: 'entities.battery_soc', label: 'Battery SOC Entity', selector: { entity: { domain: 'sensor' } } },
-          { name: 'entities.battery_capacity', label: 'Battery Capacity (kWh)', selector: { number: { min: 0, step: 0.1, mode: 'box' } } },
-          { name: 'entities.grid', label: 'Grid Power Entity', selector: { entity: { domain: 'sensor' } } },
-        ]},
-        { name: '', type: 'grid', schema: [
-          { name: 'visualization_mode', label: 'Visualization Mode', selector: { select: { options: [
-            { value: 'particles', label: 'Animated Particles' },
-            { value: 'sankey', label: 'Sankey Flow Lines' },
-            { value: 'both', label: 'Both' }
-          ]}}},
-          { name: 'show_statistics', label: 'Show Statistics', selector: { boolean: {} } },
-          { name: 'update_interval', label: 'Update Interval (ms)', selector: { number: { min: 500, max: 10000, step: 500, mode: 'box' } } },
-        ]},
-        { name: '', type: 'grid', schema: [
-          { name: 'warnings.battery_low', label: 'Battery Low Warning (%)', selector: { number: { min: 0, max: 100, step: 5, mode: 'box' } } },
-          { name: 'warnings.grid_import', label: 'High Grid Import Warning (W)', selector: { number: { min: 0, max: 10000, step: 100, mode: 'box' } } },
-        ]}
-      ]
-    };
   }
 
   /**
@@ -1286,7 +1256,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.30';
+const VERSION = '1.0.31';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
