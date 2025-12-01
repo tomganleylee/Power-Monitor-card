@@ -13,6 +13,7 @@ export class EnergyFlowCardEditor extends LitElement {
   @state() private _config?: EnergyFlowCardConfig;
   @state() private _entities: string[] = [];
   @state() private _selectedTab: 'sources' | 'devices' | 'categories' | 'display' | 'warnings' = 'sources';
+  @state() private _helpersLoaded: boolean = false;
 
   static styles = css`
     :host {
@@ -104,6 +105,7 @@ export class EnergyFlowCardEditor extends LitElement {
    * Called by Home Assistant to set the configuration
    */
   public setConfig(config: EnergyFlowCardConfig): void {
+    console.log('[EnergyFlowCardEditor] setConfig called with:', config);
     this._config = config;
     this._loadEntities();
     this._loadCardHelpers();
@@ -123,20 +125,30 @@ export class EnergyFlowCardEditor extends LitElement {
    * This ensures ha-entity-picker and other components are available
    */
   private async _loadCardHelpers(): Promise<void> {
+    console.log('[EnergyFlowCardEditor] _loadCardHelpers called');
+
     // Check if ha-entity-picker is already defined
     if (customElements.get('ha-entity-picker')) {
+      console.log('[EnergyFlowCardEditor] ha-entity-picker already loaded');
+      this._helpersLoaded = true;
       return;
     }
 
     try {
       // Load card helpers from Home Assistant
+      console.log('[EnergyFlowCardEditor] Loading card helpers...');
       const helpers = await (window as any).loadCardHelpers?.();
       if (helpers) {
         // Create a dummy card to force load all HA components
+        console.log('[EnergyFlowCardEditor] Creating dummy card to load HA components...');
         await helpers.createCardElement({ type: 'entities', entities: [] });
+        console.log('[EnergyFlowCardEditor] HA components loaded successfully');
+        this._helpersLoaded = true;
+      } else {
+        console.warn('[EnergyFlowCardEditor] loadCardHelpers not available');
       }
     } catch (err) {
-      console.warn('Could not load card helpers:', err);
+      console.warn('[EnergyFlowCardEditor] Could not load card helpers:', err);
     }
   }
 
@@ -336,8 +348,14 @@ export class EnergyFlowCardEditor extends LitElement {
   }
 
   protected render() {
+    console.log('[EnergyFlowCardEditor] render called, config:', !!this._config, 'hass:', !!this.hass, 'helpersLoaded:', this._helpersLoaded);
+
     if (!this._config || !this.hass) {
-      return html`<div class="card-config">Loading...</div>`;
+      return html`<div class="card-config">Loading configuration...</div>`;
+    }
+
+    if (!this._helpersLoaded) {
+      return html`<div class="card-config">Loading Home Assistant components...</div>`;
     }
 
     return html`
@@ -655,3 +673,6 @@ declare global {
     'energy-flow-card-editor': EnergyFlowCardEditor;
   }
 }
+
+// Log when the editor module is loaded
+console.log('[EnergyFlowCardEditor] Module loaded, customElement registered:', !!customElements.get('energy-flow-card-editor'));

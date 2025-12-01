@@ -1266,10 +1266,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
 if (!customElements.get('energy-flow-card')) {
   customElements.define('energy-flow-card', EnergyFlowCard);
 }
-if (!customElements.get('energy-flow-card-editor')) {
-  // Placeholder - actual editor is defined in config-editor.ts
-  customElements.define('energy-flow-card-editor', class extends HTMLElement {});
-}
+// Note: energy-flow-card-editor is registered via @customElement decorator in config-editor.ts
 
 // TypeScript type declaration
 declare global {
@@ -1289,7 +1286,7 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.29';
+const VERSION = '1.0.30';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
