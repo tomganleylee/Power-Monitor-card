@@ -10,6 +10,19 @@ import type { EnergyFlowCardConfig, DeviceConfig, CategoryConfig } from './types
 @customElement('energy-flow-card-editor')
 export class EnergyFlowCardEditor extends LitElement {
   @property({ attribute: false }) public hass?: any;
+
+  // Config can be set via property (HA's preferred method) or setConfig method
+  @property({ attribute: false })
+  public set config(config: EnergyFlowCardConfig) {
+    console.log('[EnergyFlowCardEditor] config property set:', config);
+    this._config = config;
+    this._loadEntities();
+    this._loadCardHelpers();
+  }
+  public get config(): EnergyFlowCardConfig | undefined {
+    return this._config;
+  }
+
   @state() private _config?: EnergyFlowCardConfig;
   @state() private _entities: string[] = [];
   @state() private _selectedTab: 'sources' | 'devices' | 'categories' | 'display' | 'warnings' = 'sources';
