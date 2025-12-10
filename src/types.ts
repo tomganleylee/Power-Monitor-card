@@ -15,7 +15,7 @@ export interface EnergyFlowCardConfig {
   categories?: CategoryConfig[];
   update_interval?: number;
   show_statistics?: boolean;
-  visualization_mode?: 'particles' | 'sankey' | 'both';  // New option
+  visualization_mode?: 'particles' | 'sankey' | 'both';
   min_height?: number;
   max_height?: number;
   warnings?: {
@@ -28,6 +28,8 @@ export interface EnergyFlowCardConfig {
     battery_color?: string;
     grid_color?: string;
   };
+  /** Enable debug logging to console (default: false) */
+  debug?: boolean;
 }
 
 export interface DeviceConfig {
@@ -59,7 +61,7 @@ export interface WarningConfig {
 // Runtime State Types
 
 export interface EnergySourceNode {
-  type: 'solar' | 'battery' | 'grid' | 'hub';
+  type: 'solar' | 'battery' | 'grid';
   entityId: string;
   powerWatts: number;
   isActive: boolean;
@@ -72,6 +74,16 @@ export interface EnergySourceNode {
   x: number;
   y: number;
   radius: number;
+}
+
+/** Hub node representing the home/distribution center */
+export interface HubNode {
+  type: 'hub';
+  entityId: string;
+  x: number;
+  y: number;
+  radius: number;
+  color?: string;
 }
 
 export interface ConsumptionDeviceNode {

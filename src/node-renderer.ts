@@ -406,7 +406,7 @@ export class NodeRenderer {
   }
 
   /**
-   * Render battery charge indicator
+   * Render battery charge indicator with charging animation
    * @param node Battery node
    * @param soc State of charge (0-100)
    * @param capacity Total battery capacity in kWh (optional)
@@ -419,6 +419,10 @@ export class NodeRenderer {
     const x = node.x - barWidth / 2;
     const y = node.y + node.radius + 32;
 
+    // Determine if charging (negative power = charging)
+    const isCharging = node.powerWatts < -10;
+    const isDischarging = node.powerWatts > 10;
+
     // Background (dark)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(x, y, barWidth, barHeight);
@@ -427,6 +431,35 @@ export class NodeRenderer {
     const chargeWidth = (barWidth * soc) / 100;
     const chargeColor = soc > 80 ? '#4caf50' : soc > 20 ? '#ff9800' : '#f44336';
 
+    // Add pulsing animation when charging
+    if (isCharging) {
+      const pulsePhase = (Date.now() % 2000) / 2000;
+      const pulseOpacity = 0.6 + Math.sin(pulsePhase * Math.PI * 2) * 0.3;
+      const pulseGlow = 8 + Math.sin(pulsePhase * Math.PI * 2) * 6;
+
+      ctx.shadowBlur = pulseGlow;
+      ctx.shadowColor = '#4caf50'; // Green glow when charging
+      ctx.globalAlpha = pulseOpacity;
+
+      // Draw animated charging segments
+      const segmentCount = 5;
+      const segmentWidth = barWidth / segmentCount;
+      const animOffset = (Date.now() % 1000) / 1000;
+
+      for (let i = 0; i < segmentCount; i++) {
+        const segX = x + i * segmentWidth;
+        const segOpacity = ((i / segmentCount + animOffset) % 1);
+        if (segX < x + chargeWidth) {
+          ctx.globalAlpha = 0.3 + segOpacity * 0.5;
+          ctx.fillStyle = '#4caf50';
+          ctx.fillRect(segX, y, Math.min(segmentWidth - 1, x + chargeWidth - segX), barHeight);
+        }
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
+    // Draw main charge bar
     ctx.shadowBlur = 8;
     ctx.shadowColor = chargeColor;
     ctx.fillStyle = chargeColor;
@@ -437,6 +470,21 @@ export class NodeRenderer {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, barWidth, barHeight);
+
+    // Draw charging indicator arrow
+    if (isCharging) {
+      ctx.fillStyle = '#4caf50';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚡', x - 4, y + barHeight / 2);
+    } else if (isDischarging) {
+      ctx.fillStyle = chargeColor;
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('↓', x - 4, y + barHeight / 2);
+    }
 
     // Percentage text with capacity if available
     let displayText: string;
@@ -456,7 +504,7 @@ export class NodeRenderer {
 
     // Time remaining (if applicable)
     if (timeRemaining) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = isCharging ? '#4caf50' : 'rgba(255, 255, 255, 0.7)';
       ctx.font = '10px sans-serif';
       ctx.fillText(timeRemaining, node.x, y + barHeight + 18);
     }
@@ -606,21 +654,6 @@ export class NodeRenderer {
     } else {
       return '#f44336'; // Red (very high)
     }
-  }
-
-  /**
-   * Lighten a hex color by a percentage
-   * @param color Hex color code
-   * @param percent Percentage to lighten (0-100)
-   * @returns Lightened hex color
-   */
-  private lightenColor(color: string, percent: number): string {
-    const num = parseInt(color.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = Math.min(255, ((num >> 16) & 0xff) + amt);
-    const G = Math.min(255, ((num >> 8) & 0xff) + amt);
-    const B = Math.min(255, (num & 0xff) + amt);
-    return `#${(0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
   }
 
   /**

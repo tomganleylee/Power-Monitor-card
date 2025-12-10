@@ -1,32 +1,40 @@
 /**
  * ParticleSystem - Manages particle animation with object pooling
+ * Features: O(1) particle acquisition via free list, power-based size variation
  */
 
 import {
   Particle,
   EnergySourceNode,
-  ConsumptionDeviceNode
+  ConsumptionDeviceNode,
+  HubNode
 } from './types';
 import { calculateParticleSpawnRate, calculateParticleSpeed } from './utils/power-calculations';
+import {
+  PHYSICS,
+  PARTICLE,
+  THRESHOLDS
+} from './constants';
 
 export class ParticleSystem {
   private particlePool: Particle[] = [];
   private activeParticles: Set<number> = new Set();
-  private nextParticleId: number = 0;
-  private poolSize: number = 500;
+  private freeList: number[] = []; // O(1) free particle lookup
+  private poolSize: number = PARTICLE.POOL_SIZE;
   private lastSpawnTime: Map<string, number> = new Map();
 
-  constructor(poolSize: number = 500) {
+  constructor(poolSize: number = PARTICLE.POOL_SIZE) {
     this.poolSize = poolSize;
     this.initializePool();
   }
 
   /**
-   * Initialize particle object pool
+   * Initialize particle object pool with free list
    */
   private initializePool(): void {
     for (let i = 0; i < this.poolSize; i++) {
       this.particlePool.push(this.createParticle(i));
+      this.freeList.push(i); // Add all particles to free list
     }
   }
 
@@ -41,28 +49,37 @@ export class ParticleSystem {
       lifetime: 0,
       x: 0,
       y: 0,
-      vx: 0,  // Velocity X
-      vy: 0,  // Velocity Y
+      vx: 0,
+      vy: 0,
       color: '#ffffff',
-      radius: 4,  // Smaller for cloud effect
+      radius: PARTICLE.BASE_RADIUS,
       opacity: 1,
       isActive: false,
       wanderAngle: Math.random() * Math.PI * 2,
-      wanderSpeed: 0.3 + Math.random() * 0.7,  // Slower wander
-      maxSpeed: 60  // Max pixels per second
+      wanderSpeed: 0.3 + Math.random() * 0.7,
+      maxSpeed: PHYSICS.MAX_SPEED
     };
+  }
+
+  /**
+   * Calculate particle radius based on power flow
+   * Higher power = larger particles
+   */
+  private calculateParticleRadius(powerWatts: number): number {
+    const powerScale = Math.min(1, Math.abs(powerWatts) / PARTICLE.MAX_POWER_FOR_SIZE);
+    return PARTICLE.BASE_RADIUS + (powerScale * PARTICLE.RADIUS_SCALE);
   }
 
   /**
    * Spawn particles for a connection between source and target
    * @param sourceNode Source energy node
-   * @param targetNode Target consumption node
+   * @param targetNode Target consumption node or hub node
    * @param powerWatts Power flow in watts
    * @param deltaTime Time since last frame in seconds
    */
   public spawnParticles(
-    sourceNode: EnergySourceNode | ConsumptionDeviceNode,
-    targetNode: ConsumptionDeviceNode,
+    sourceNode: EnergySourceNode | ConsumptionDeviceNode | HubNode,
+    targetNode: ConsumptionDeviceNode | HubNode,
     powerWatts: number,
     deltaTime: number
   ): void {
@@ -72,7 +89,8 @@ export class ParticleSystem {
 
     // Create unique key for this connection
     const sourceType = 'type' in sourceNode ? sourceNode.type : 'device';
-    const connectionKey = `${sourceType}_${sourceNode.entityId}_${targetNode.entityId}`;
+    const targetId = 'entityId' in targetNode ? targetNode.entityId : 'hub';
+    const connectionKey = `${sourceType}_${sourceNode.entityId}_${targetId}`;
 
     // Get last spawn time for this connection
     const lastSpawn = this.lastSpawnTime.get(connectionKey) ?? 0;
@@ -83,34 +101,39 @@ export class ParticleSystem {
       return;
     }
 
-    // Spawn particle
+    // Spawn particle using O(1) free list
     const particle = this.acquireParticle();
     if (particle) {
       const speed = calculateParticleSpeed(powerWatts);
 
-      // Get color from source node (EnergySourceNode has color, ConsumptionDeviceNode doesn't)
-      const particleColor = 'color' in sourceNode ? sourceNode.color : '#999999';
+      // Get color from source node
+      const particleColor = 'color' in sourceNode && sourceNode.color ? sourceNode.color : '#999999';
 
-      particle.sourceNode = sourceNode;
-      particle.targetNode = targetNode;
+      particle.sourceNode = sourceNode as EnergySourceNode | ConsumptionDeviceNode;
+      particle.targetNode = targetNode as ConsumptionDeviceNode;
       particle.lifetime = 0;
+
       // Spawn at source with slight random offset
-      const spawnOffset = 20;
-      particle.x = sourceNode.x + (Math.random() - 0.5) * spawnOffset;
-      particle.y = sourceNode.y + (Math.random() - 0.5) * spawnOffset;
+      particle.x = sourceNode.x + (Math.random() - 0.5) * PHYSICS.SPAWN_OFFSET;
+      particle.y = sourceNode.y + (Math.random() - 0.5) * PHYSICS.SPAWN_OFFSET;
+
       // Initial velocity towards target with randomness
       const dx = targetNode.x - particle.x;
       const dy = targetNode.y - particle.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const initialSpeed = speed * 30; // Convert to pixels per second
-      particle.vx = (dx / distance) * initialSpeed + (Math.random() - 0.5) * 20;
-      particle.vy = (dy / distance) * initialSpeed + (Math.random() - 0.5) * 20;
+      const initialSpeed = speed * PHYSICS.SPEED_MULTIPLIER;
+      particle.vx = (dx / distance) * initialSpeed + (Math.random() - 0.5) * PHYSICS.VELOCITY_RANDOMIZATION;
+      particle.vy = (dy / distance) * initialSpeed + (Math.random() - 0.5) * PHYSICS.VELOCITY_RANDOMIZATION;
+
       particle.color = particleColor;
       particle.opacity = 0; // Start transparent, fade in
       particle.isActive = true;
       particle.wanderAngle = Math.random() * Math.PI * 2;
       particle.wanderSpeed = 0.3 + Math.random() * 0.7;
-      particle.maxSpeed = 270; // 20% slower than 340 (340 * 0.8 = 272)
+      particle.maxSpeed = PHYSICS.MAX_SPEED;
+
+      // Set particle size based on power
+      particle.radius = this.calculateParticleRadius(powerWatts);
 
       this.activeParticles.add(particle.id);
       this.lastSpawnTime.set(connectionKey, now);
@@ -142,28 +165,27 @@ export class ParticleSystem {
         const dy = particle.targetNode.y - particle.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Check if reached target (within 30px)
-        if (distance < 30) {
+        // Check if reached target
+        if (distance < PHYSICS.ARRIVAL_DISTANCE) {
           particlesToRelease.push(particleId);
           continue;
         }
 
-        // Release particles after 3.5 seconds (longer for slower speed)
-        if (particle.lifetime > 3.5) {
+        // Release particles after lifetime exceeded
+        if (particle.lifetime > PHYSICS.PARTICLE_LIFETIME) {
           particlesToRelease.push(particleId);
           continue;
         }
 
-        // 20% slower than 2550 = 2040
-        const attractionStrength = 2040; // Pixels per second squared
+        // Apply attraction force towards target
         const directionX = dx / distance;
         const directionY = dy / distance;
-        const attractionX = directionX * attractionStrength * deltaTime;
-        const attractionY = directionY * attractionStrength * deltaTime;
+        const attractionX = directionX * PHYSICS.ATTRACTION_STRENGTH * deltaTime;
+        const attractionY = directionY * PHYSICS.ATTRACTION_STRENGTH * deltaTime;
 
-        // More wander force for visible floating effect
-        particle.wanderAngle += (Math.random() - 0.5) * 0.4; // More angle change for wobble
-        const wanderForce = particle.wanderSpeed * 8; // More wander strength
+        // Apply wander force for visible floating effect
+        particle.wanderAngle += (Math.random() - 0.5) * PHYSICS.WANDER_ANGLE_CHANGE;
+        const wanderForce = particle.wanderSpeed * PHYSICS.WANDER_STRENGTH;
         const wanderX = Math.cos(particle.wanderAngle) * wanderForce * deltaTime;
         const wanderY = Math.sin(particle.wanderAngle) * wanderForce * deltaTime;
 
@@ -171,10 +193,9 @@ export class ParticleSystem {
         particle.vx += attractionX + wanderX;
         particle.vy += attractionY + wanderY;
 
-        // Almost no drag - maximum speed to reach target quickly
-        const drag = 0.998;
-        particle.vx *= drag;
-        particle.vy *= drag;
+        // Apply drag
+        particle.vx *= PHYSICS.DRAG;
+        particle.vy *= PHYSICS.DRAG;
 
         // Limit max speed
         const speed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
@@ -188,13 +209,14 @@ export class ParticleSystem {
         particle.y += particle.vy * deltaTime;
       }
 
-      // Fade in/out opacity (faster timing for quick transitions)
-      if (particle.lifetime < 0.2) {
-        particle.opacity = particle.lifetime / 0.2; // Fade in over 0.2s
-      } else if (particle.lifetime > 2) {
-        particle.opacity = Math.max(0, (2.5 - particle.lifetime) / 0.5); // Fade out last 0.5s
+      // Fade in/out opacity
+      if (particle.lifetime < PARTICLE.FADE_IN_DURATION) {
+        particle.opacity = particle.lifetime / PARTICLE.FADE_IN_DURATION;
+      } else if (particle.lifetime > PHYSICS.PARTICLE_LIFETIME - PARTICLE.FADE_OUT_START) {
+        const fadeOutStart = PHYSICS.PARTICLE_LIFETIME - PARTICLE.FADE_OUT_START;
+        particle.opacity = Math.max(0, (PHYSICS.PARTICLE_LIFETIME - particle.lifetime) / PARTICLE.FADE_OUT_START);
       } else {
-        particle.opacity = 0.9; // Fully visible
+        particle.opacity = PARTICLE.FULL_OPACITY;
       }
     }
 
@@ -220,7 +242,7 @@ export class ParticleSystem {
       ctx.globalAlpha = particle.opacity;
 
       // Add glow effect to particles
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = PARTICLE.GLOW_BLUR;
       ctx.shadowColor = particle.color;
 
       ctx.fillStyle = particle.color;
@@ -228,11 +250,11 @@ export class ParticleSystem {
       ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Add bright center
-      ctx.shadowBlur = 8;
+      // Add bright center (size scales with particle size)
+      ctx.shadowBlur = PARTICLE.GLOW_BLUR * 0.67;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.radius * 0.4, 0, Math.PI * 2);
+      ctx.arc(particle.x, particle.y, particle.radius * PARTICLE.CENTER_SIZE, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -240,25 +262,26 @@ export class ParticleSystem {
   }
 
   /**
-   * Acquire a particle from the pool
+   * Acquire a particle from the pool using O(1) free list
    * @returns Particle object or null if pool is exhausted
    */
   private acquireParticle(): Particle | null {
-    // Find first inactive particle
-    for (let i = 0; i < this.particlePool.length; i++) {
-      const particle = this.particlePool[i];
-      if (!particle.isActive) {
-        return particle;
-      }
+    // O(1) acquisition from free list
+    if (this.freeList.length > 0) {
+      const particleId = this.freeList.pop()!;
+      return this.particlePool[particleId];
     }
 
-    // Pool exhausted - adaptive throttling
-    // Reduce particle count by releasing oldest particles
+    // Pool exhausted - release oldest particle (adaptive throttling)
     if (this.activeParticles.size > 0) {
       const oldestId = this.activeParticles.values().next().value;
       if (oldestId !== undefined) {
         this.releaseParticle(oldestId);
-        return this.particlePool[oldestId];
+        // Now acquire from free list
+        if (this.freeList.length > 0) {
+          const particleId = this.freeList.pop()!;
+          return this.particlePool[particleId];
+        }
       }
     }
 
@@ -271,23 +294,13 @@ export class ParticleSystem {
    */
   private releaseParticle(particleId: number): void {
     const particle = this.particlePool[particleId];
-    if (particle) {
+    if (particle && particle.isActive) {
       particle.isActive = false;
       particle.sourceNode = null;
       particle.targetNode = null;
       this.activeParticles.delete(particleId);
+      this.freeList.push(particleId); // Return to free list for O(1) reuse
     }
-  }
-
-  /**
-   * Easing function for smooth particle movement
-   * @param t Progress value (0-1)
-   * @returns Eased progress value (0-1)
-   */
-  private easeInOutCubic(t: number): number {
-    return t < 0.5
-      ? 4 * t * t * t
-      : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
 
   /**
@@ -308,7 +321,8 @@ export class ParticleSystem {
    * Clear all active particles
    */
   public clear(): void {
-    for (const particleId of this.activeParticles) {
+    // Release all active particles back to free list
+    for (const particleId of Array.from(this.activeParticles)) {
       this.releaseParticle(particleId);
     }
     this.lastSpawnTime.clear();
@@ -319,7 +333,11 @@ export class ParticleSystem {
    */
   public reset(): void {
     this.clear();
-    this.nextParticleId = 0;
+    // Rebuild free list
+    this.freeList = [];
+    for (let i = 0; i < this.poolSize; i++) {
+      this.freeList.push(i);
+    }
   }
 
   /**

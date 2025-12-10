@@ -10,7 +10,8 @@ import {
   HomeAssistant,
   LovelaceCard,
   EnergySourceNode,
-  ConsumptionDeviceNode
+  ConsumptionDeviceNode,
+  HubNode
 } from './types';
 import { SensorManager } from './sensor-manager';
 import { ParticleSystem } from './particle-system';
@@ -18,7 +19,17 @@ import { LayoutEngine } from './layout-engine';
 import { NodeRenderer } from './node-renderer';
 import { SankeyRenderer } from './sankey-renderer';
 import { getBatteryFlowDirection, getGridFlowDirection, calculateBatteryTimeRemaining, formatTimeRemaining } from './utils/power-calculations';
-import { calculateEnergyFlows } from './utils/energy-flow-calculator';
+import { calculateEnergyFlows, EnergyFlow } from './utils/energy-flow-calculator';
+import {
+  VERSION,
+  LAYOUT,
+  NODE_SIZES,
+  COLORS,
+  THRESHOLDS,
+  ANIMATION,
+  DEFAULTS,
+  PARTICLE
+} from './constants';
 import './config-editor'; // Import config editor to bundle it
 
 @customElement('energy-flow-card')
@@ -46,7 +57,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   private resizeObserver?: ResizeObserver;
   private updateTimer?: number;
   private lastFrameTime: number = 0;
-  private _lastDebugLog: number = 0;
+  private lastDebugLog: number = 0;
+  private resizeDebounceTimer?: number;
+  private canvasClickHandler?: (event: MouseEvent) => void;
+  private canvasHoverHandler?: (event: MouseEvent) => void;
+  private tooltipElement?: HTMLDivElement;
 
   /**
    * Set the card configuration from Lovelace UI
@@ -63,11 +78,12 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
 
     this.config = {
       ...config,
-      update_interval: config.update_interval ?? 2000,
-      show_statistics: config.show_statistics ?? false,  // Changed default to false
-      visualization_mode: config.visualization_mode ?? 'both',  // Changed to 'both' to show Sankey lines + particles
-      min_height: config.min_height ?? 1000,  // Increased default to show more devices
-      max_height: config.max_height ?? 9999  // Effectively unlimited - let card grow with content
+      update_interval: config.update_interval ?? DEFAULTS.UPDATE_INTERVAL,
+      show_statistics: config.show_statistics ?? DEFAULTS.SHOW_STATISTICS,
+      visualization_mode: config.visualization_mode ?? DEFAULTS.VISUALIZATION_MODE,
+      min_height: config.min_height ?? DEFAULTS.MIN_HEIGHT,
+      max_height: config.max_height ?? DEFAULTS.MAX_HEIGHT,
+      debug: config.debug ?? false
     };
 
     this.isLoading = false;
@@ -635,7 +651,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   }
 
   /**
-   * Handle canvas click event for category toggling
+   * Handle canvas click event for category toggling and entity dialogs
    */
   private handleCanvasClick(event: MouseEvent): void {
     if (!this.canvas) return;
@@ -644,7 +660,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Check if click is on any category node
+    // Check if click is on any category node (toggle expand/collapse)
     for (const [categoryId, categoryNode] of this.categoryNodes) {
       const dx = x - categoryNode.x;
       const dy = y - categoryNode.y;
@@ -652,13 +668,19 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
 
       if (distance <= categoryNode.radius) {
         this.handleCategoryClick(categoryId);
-        break;
+        return;
       }
+    }
+
+    // Check if click is on any entity node (open HA dialog)
+    const entity = this.findEntityAtPosition(x, y);
+    if (entity && entity.entityId) {
+      this.openEntityDialog(entity.entityId);
     }
   }
 
   /**
-   * Handle canvas hover for cursor changes
+   * Handle canvas hover for cursor changes and tooltips
    */
   private handleCanvasHover(event: MouseEvent): void {
     if (!this.canvas) return;
@@ -667,21 +689,43 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Check if hovering over any category node
-    let isOverCategory = false;
+    // Check if hovering over any interactive element
+    let isOverInteractive = false;
+
+    // Check category nodes
     for (const categoryNode of this.categoryNodes.values()) {
       const dx = x - categoryNode.x;
       const dy = y - categoryNode.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       if (distance <= categoryNode.radius) {
-        isOverCategory = true;
+        isOverInteractive = true;
         break;
       }
     }
 
+    // Check for entity under cursor (for tooltip)
+    const entity = this.findEntityAtPosition(x, y);
+    if (entity) {
+      isOverInteractive = true;
+
+      // Show tooltip with entity info
+      const powerStr = Math.abs(entity.power) >= 1000
+        ? `${(entity.power / 1000).toFixed(2)} kW`
+        : `${Math.round(entity.power)} W`;
+
+      const tooltipContent = `
+        <div style="font-weight: bold; margin-bottom: 4px;">${entity.name}</div>
+        <div style="color: #64b5f6;">${powerStr}</div>
+        <div style="font-size: 10px; color: #888; margin-top: 4px;">Click to view details</div>
+      `;
+      this.showTooltip(event.clientX, event.clientY, tooltipContent);
+    } else {
+      this.hideTooltip();
+    }
+
     // Update cursor
-    this.canvas.style.cursor = isOverCategory ? 'pointer' : 'default';
+    this.canvas.style.cursor = isOverInteractive ? 'pointer' : 'default';
   }
 
   /**
@@ -768,21 +812,40 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       this.updateNodeStates();
     }
 
-    // Setup resize observer
+    // Setup resize observer with debounce
     this.resizeObserver = new ResizeObserver(() => {
-      this.handleResize();
+      this.handleResizeDebounced();
     });
     this.resizeObserver.observe(container);
 
-    // Setup click handler for category toggling
-    this.canvas.addEventListener('click', (event) => {
+    // Setup click handler for category toggling and entity dialogs
+    this.canvasClickHandler = (event: MouseEvent) => {
       this.handleCanvasClick(event);
-    });
+    };
+    this.canvas.addEventListener('click', this.canvasClickHandler);
 
-    // Add hover cursor for interactive nodes
-    this.canvas.addEventListener('mousemove', (event) => {
+    // Add hover handler for cursor changes and tooltips
+    this.canvasHoverHandler = (event: MouseEvent) => {
       this.handleCanvasHover(event);
+    };
+    this.canvas.addEventListener('mousemove', this.canvasHoverHandler);
+
+    // Hide tooltip when leaving canvas
+    this.canvas.addEventListener('mouseleave', () => {
+      this.hideTooltip();
     });
+  }
+
+  /**
+   * Debounced resize handler
+   */
+  private handleResizeDebounced(): void {
+    if (this.resizeDebounceTimer) {
+      clearTimeout(this.resizeDebounceTimer);
+    }
+    this.resizeDebounceTimer = window.setTimeout(() => {
+      this.handleResize();
+    }, ANIMATION.RESIZE_DEBOUNCE);
   }
 
   /**
@@ -852,7 +915,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('v1.0.29', 10, 10);
+    ctx.fillText(`v${VERSION}`, 10, 10);
     ctx.restore();
 
     // Get hub position (compressed left - 40% from left, between sources and devices)
@@ -888,21 +951,23 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       totalLoad: totalLoad
     });
 
-    // Debug: Log energy flows once every 5 seconds
-    const now = Date.now();
-    if (!this._lastDebugLog || now - this._lastDebugLog > 5000) {
-      console.log('=== ENERGY FLOW DEBUG ===');
-      console.log('Input Values:', {
-        solar: solarNode?.powerWatts ?? 0,
-        battery: batteryNode?.powerWatts ?? 0,
-        grid: gridNode?.powerWatts ?? 0,
-        totalLoad: totalLoad
-      });
-      console.log('Calculated Flows:');
-      energyFlows.forEach(flow => {
-        console.log(`  ${flow.from} → ${flow.to}: ${Math.round(flow.powerWatts)}W (${flow.color})`);
-      });
-      this._lastDebugLog = now;
+    // Debug: Log energy flows once every 5 seconds (only if debug enabled)
+    if (this.config.debug) {
+      const now = Date.now();
+      if (!this.lastDebugLog || now - this.lastDebugLog > THRESHOLDS.DEBUG_LOG_INTERVAL) {
+        console.log('=== ENERGY FLOW DEBUG ===');
+        console.log('Input Values:', {
+          solar: solarNode?.powerWatts ?? 0,
+          battery: batteryNode?.powerWatts ?? 0,
+          grid: gridNode?.powerWatts ?? 0,
+          totalLoad: totalLoad
+        });
+        console.log('Calculated Flows:');
+        energyFlows.forEach(flow => {
+          console.log(`  ${flow.from} → ${flow.to}: ${Math.round(flow.powerWatts)}W (${flow.color})`);
+        });
+        this.lastDebugLog = now;
+      }
     }
 
     const vizMode = this.config.visualization_mode ?? 'particles';
@@ -992,12 +1057,13 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     // Particle system (for 'particles' or 'both' modes)
     if ((vizMode === 'particles' || vizMode === 'both') && this.particleSystem) {
       // Create hub node for particle spawning - larger size
-      const hubNode: any = {
+      const hubNode: HubNode = {
         type: 'hub',
         entityId: 'hub',
         x: hubX,
         y: hubY,
-        radius: 50
+        radius: NODE_SIZES.HUB_RADIUS,
+        color: this.getDominantSourceColor(energyFlows)
       };
 
       // Spawn particles for energy flows between sources and to hub
@@ -1005,9 +1071,7 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         const fromNode = this.sourceNodes.find(n => n.type === flow.from);
         const toNode = flow.to === 'hub' ? hubNode : this.sourceNodes.find(n => n.type === flow.to);
 
-        if (fromNode && toNode && flow.powerWatts > 10) {
-          // Add color to hub node based on flow
-          hubNode.color = flow.color;
+        if (fromNode && toNode && flow.powerWatts > THRESHOLDS.POWER_MIN_DISPLAY) {
 
           // Spawn particles for this flow
           this.particleSystem.spawnParticles(
@@ -1021,16 +1085,12 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
 
       // Spawn particles from hub to devices (respecting category hierarchy)
       for (const device of this.consumptionNodes) {
-        if (!device.isVisible || device.powerWatts <= 10 || device.id === 'total_load') {
+        if (!device.isVisible || device.powerWatts <= THRESHOLDS.POWER_MIN_DISPLAY || device.id === 'total_load') {
           continue;
         }
 
         const isCategory = this.categoryNodes.has(device.id);
         const isCollapsed = this.collapsedCategories.has(device.id);
-
-        // Color based on dominant source
-        const dominantFlow = energyFlows.find(f => f.to === 'hub');
-        hubNode.color = dominantFlow?.color ?? '#64b5f6';
 
         if (isCategory) {
           // For categories, spawn particles to the category node
@@ -1212,6 +1272,30 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       this.updateTimer = undefined;
     }
 
+    // Clear resize debounce timer
+    if (this.resizeDebounceTimer) {
+      clearTimeout(this.resizeDebounceTimer);
+      this.resizeDebounceTimer = undefined;
+    }
+
+    // Remove canvas event listeners
+    if (this.canvas) {
+      if (this.canvasClickHandler) {
+        this.canvas.removeEventListener('click', this.canvasClickHandler);
+        this.canvasClickHandler = undefined;
+      }
+      if (this.canvasHoverHandler) {
+        this.canvas.removeEventListener('mousemove', this.canvasHoverHandler);
+        this.canvasHoverHandler = undefined;
+      }
+    }
+
+    // Remove tooltip
+    if (this.tooltipElement) {
+      this.tooltipElement.remove();
+      this.tooltipElement = undefined;
+    }
+
     // Unsubscribe from sensors
     if (this.sensorManager) {
       this.sensorManager.unsubscribe();
@@ -1231,6 +1315,148 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = undefined;
+    }
+  }
+
+  /**
+   * Get dominant energy source color for hub display
+   * @param flows Energy flow array
+   * @returns Color hex string
+   */
+  private getDominantSourceColor(flows: EnergyFlow[]): string {
+    // Find flows going to hub
+    const hubFlows = flows.filter(f => f.to === 'hub');
+    if (hubFlows.length === 0) return COLORS.HUB;
+
+    // Find the highest power flow
+    let maxPower = 0;
+    let dominantColor: string = COLORS.HUB;
+
+    for (const flow of hubFlows) {
+      if (flow.powerWatts > maxPower) {
+        maxPower = flow.powerWatts;
+        dominantColor = flow.color;
+      }
+    }
+
+    return dominantColor;
+  }
+
+  /**
+   * Open Home Assistant entity dialog (more-info)
+   * @param entityId Entity ID to show dialog for
+   */
+  private openEntityDialog(entityId: string): void {
+    if (!this.hass || !entityId || entityId.startsWith('calculated.')) return;
+
+    // Fire Home Assistant event to open more-info dialog
+    const event = new CustomEvent('hass-more-info', {
+      bubbles: true,
+      composed: true,
+      detail: { entityId }
+    });
+    this.dispatchEvent(event);
+  }
+
+  /**
+   * Find entity at canvas position
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @returns Entity ID if found, null otherwise
+   */
+  private findEntityAtPosition(x: number, y: number): { entityId: string; name: string; power: number } | null {
+    // Check source nodes
+    for (const node of this.sourceNodes) {
+      const dx = x - node.x;
+      const dy = y - node.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= node.radius) {
+        return {
+          entityId: node.entityId,
+          name: node.type.charAt(0).toUpperCase() + node.type.slice(1),
+          power: node.powerWatts
+        };
+      }
+    }
+
+    // Check hub node
+    const hubX = (this.canvas?.width ?? 800) * LAYOUT.HUB_X;
+    const hubY = (this.canvas?.height ?? 500) * LAYOUT.HUB_Y;
+    const hubDx = x - hubX;
+    const hubDy = y - hubY;
+    if (Math.sqrt(hubDx * hubDx + hubDy * hubDy) <= NODE_SIZES.HUB_RADIUS) {
+      return null; // Hub doesn't have an entity
+    }
+
+    // Check consumption nodes
+    for (const node of this.consumptionNodes) {
+      if (!node.isVisible) continue;
+      const dx = x - node.x;
+      const dy = y - node.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= node.radius + 10) { // Slightly larger hitbox for rectangles
+        return {
+          entityId: node.entityId,
+          name: node.name,
+          power: node.powerWatts
+        };
+      }
+
+      // Check children if category
+      if (node.children) {
+        for (const child of node.children) {
+          if (!child.isVisible) continue;
+          const cdx = x - child.x;
+          const cdy = y - child.y;
+          const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
+          if (cdist <= child.radius + 10) {
+            return {
+              entityId: child.entityId,
+              name: child.name,
+              power: child.powerWatts
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Show tooltip at position
+   */
+  private showTooltip(x: number, y: number, content: string): void {
+    if (!this.tooltipElement) {
+      this.tooltipElement = document.createElement('div');
+      this.tooltipElement.style.cssText = `
+        position: fixed;
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 10000;
+        max-width: 200px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      `;
+      document.body.appendChild(this.tooltipElement);
+    }
+
+    this.tooltipElement.innerHTML = content;
+    this.tooltipElement.style.display = 'block';
+    this.tooltipElement.style.left = `${x + 15}px`;
+    this.tooltipElement.style.top = `${y + 15}px`;
+  }
+
+  /**
+   * Hide tooltip
+   */
+  private hideTooltip(): void {
+    if (this.tooltipElement) {
+      this.tooltipElement.style.display = 'none';
     }
   }
 }
@@ -1259,7 +1485,6 @@ declare global {
 });
 
 // Version logging with styling for easy identification
-const VERSION = '1.0.34';
 console.log(
   '%c⚡ Energy Flow Card %c' + VERSION + '%c loaded successfully',
   'color: #4caf50; font-weight: bold; font-size: 14px;',
