@@ -4,7 +4,7 @@
  */
 
 /** Current version - single source of truth */
-export const VERSION = '1.0.35';
+export const VERSION = '1.0.37';
 
 /** Physics constants for particle animation */
 export const PHYSICS = {

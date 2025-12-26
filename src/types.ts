@@ -16,6 +16,8 @@ export interface EnergyFlowCardConfig {
   update_interval?: number;
   show_statistics?: boolean;
   visualization_mode?: 'particles' | 'sankey' | 'both';
+  /** Layout mode: 'triangle' (classic) or 'horizontal_bus' (compact strip) */
+  layout_mode?: 'triangle' | 'horizontal_bus';
   min_height?: number;
   max_height?: number;
   warnings?: {
@@ -27,6 +29,8 @@ export interface EnergyFlowCardConfig {
     solar_color?: string;
     battery_color?: string;
     grid_color?: string;
+    /** Bus bar color for horizontal_bus layout */
+    bus_color?: string;
   };
   /** Enable debug logging to console (default: false) */
   debug?: boolean;

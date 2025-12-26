@@ -18,6 +18,9 @@ import { ParticleSystem } from './particle-system';
 import { LayoutEngine } from './layout-engine';
 import { NodeRenderer } from './node-renderer';
 import { SankeyRenderer } from './sankey-renderer';
+import { BusRenderer, BusConfig, PowerContribution } from './bus-renderer';
+import { TrunkSankeyRenderer, TrunkConfig } from './trunk-sankey-renderer';
+import { SourceFlowRenderer } from './source-flow-renderer';
 import { getBatteryFlowDirection, getGridFlowDirection, calculateBatteryTimeRemaining, formatTimeRemaining } from './utils/power-calculations';
 import { calculateEnergyFlows, EnergyFlow } from './utils/energy-flow-calculator';
 import {
@@ -53,6 +56,9 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   private layoutEngine?: LayoutEngine;
   private nodeRenderer?: NodeRenderer;
   private sankeyRenderer?: SankeyRenderer;
+  private busRenderer?: BusRenderer;
+  private trunkSankeyRenderer?: TrunkSankeyRenderer;
+  private sourceFlowRenderer?: SourceFlowRenderer;
   private animationFrameId?: number;
   private resizeObserver?: ResizeObserver;
   private updateTimer?: number;
@@ -101,13 +107,16 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
   /**
    * Get config editor element for Home Assistant UI
    * Required for visual editor in card picker
+   * Note: Must return synchronously - the element will initialize itself
    */
-  public static async getConfigElement() {
+  public static getConfigElement(): HTMLElement {
     console.log('[EnergyFlowCard] getConfigElement called');
-    // Wait for the editor custom element to be defined
-    await customElements.whenDefined('energy-flow-card-editor');
-    console.log('[EnergyFlowCard] energy-flow-card-editor is defined, creating element');
-    return document.createElement('energy-flow-card-editor');
+
+    // The editor is already registered via @customElement decorator in config-editor.ts
+    // which is imported at the top of this file
+    const editor = document.createElement('energy-flow-card-editor');
+    console.log('[EnergyFlowCard] energy-flow-card-editor element created:', editor);
+    return editor;
   }
 
   /**
@@ -808,6 +817,11 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
       this.particleSystem = new ParticleSystem(500); // Increased from 200 to 500
       this.layoutEngine = new LayoutEngine(this.canvas.width, this.canvas.height);
 
+      // Initialize bus layout renderers
+      this.busRenderer = new BusRenderer(ctx);
+      this.trunkSankeyRenderer = new TrunkSankeyRenderer(ctx);
+      this.sourceFlowRenderer = new SourceFlowRenderer(ctx);
+
       // Initialize node states
       this.updateNodeStates();
     }
@@ -917,6 +931,14 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
     ctx.textBaseline = 'top';
     ctx.fillText(`v${VERSION}`, 10, 10);
     ctx.restore();
+
+    // Check layout mode and render accordingly
+    if (this.config.layout_mode === 'horizontal_bus') {
+      this.renderBusLayout(ctx, deltaTime);
+      return;
+    }
+
+    // === Triangle Layout (default) ===
 
     // Get hub position (compressed left - 40% from left, between sources and devices)
     const hubX = this.canvas.width * 0.40;
@@ -1207,6 +1229,214 @@ export class EnergyFlowCard extends LitElement implements LovelaceCard {
         } else {
           // Render standalone device
           this.nodeRenderer.renderConsumptionNode(device);
+        }
+      }
+    }
+  }
+
+  /**
+   * Render horizontal bus layout - compact layout for tablet top strip
+   * Sources on left → Bus in center → Consumers on right via trunk distribution
+   */
+  private renderBusLayout(ctx: CanvasRenderingContext2D, deltaTime: number): void {
+    if (!this.canvas || !this.busRenderer || !this.trunkSankeyRenderer || !this.sourceFlowRenderer) {
+      return;
+    }
+
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+
+    // Layout configuration for horizontal bus
+    // Bus takes up center portion, sources on left, consumers on right
+    const busWidth = width * 0.25;  // Bus is 25% of width
+    const busHeight = 40;
+    const busX = width * 0.35;      // Bus starts at 35% from left
+    const busY = height * 0.5;      // Vertically centered
+
+    // Source node positions (left side, in a vertical stack)
+    const sourceAreaX = width * 0.12;
+    const sourceSpacing = height * 0.28;
+    const sourceCenterY = height * 0.5;
+
+    // Consumer trunk configuration (right side)
+    const trunkStartX = busX + busWidth;
+    const trunkX = busX + busWidth + 60;  // Trunk line 60px from bus edge
+
+    // Calculate energy data
+    const solarNode = this.sourceNodes.find(n => n.type === 'solar');
+    const batteryNode = this.sourceNodes.find(n => n.type === 'battery');
+    const gridNode = this.sourceNodes.find(n => n.type === 'grid');
+
+    // Apply inversions for compatibility
+    let batteryPower = batteryNode?.powerWatts ?? 0;
+    let gridPower = gridNode?.powerWatts ?? 0;
+
+    if (this.config.entities?.battery_invert) {
+      batteryPower = -batteryPower;
+    }
+    if (this.config.entities?.grid_invert) {
+      gridPower = -gridPower;
+    }
+
+    // Calculate total load
+    const totalLoad = this.consumptionNodes
+      .filter(n => n.id !== 'total_load')
+      .reduce((sum, node) => sum + node.powerWatts, 0);
+
+    // Calculate energy flows
+    const energyFlows = calculateEnergyFlows({
+      solar: solarNode?.powerWatts ?? 0,
+      battery: batteryPower,
+      grid: gridPower,
+      totalLoad: totalLoad
+    });
+
+    // Update source node positions for horizontal layout
+    const updatedSourceNodes: EnergySourceNode[] = this.sourceNodes.map(node => {
+      let yOffset = 0;
+      switch (node.type) {
+        case 'solar':
+          yOffset = -sourceSpacing;
+          break;
+        case 'grid':
+          yOffset = 0;
+          break;
+        case 'battery':
+          yOffset = sourceSpacing;
+          break;
+      }
+      return {
+        ...node,
+        x: sourceAreaX,
+        y: sourceCenterY + yOffset,
+        radius: 35
+      };
+    });
+
+    // Bus configuration
+    const busConfig: BusConfig = {
+      x: busX,
+      y: busY,
+      width: busWidth,
+      height: busHeight
+    };
+
+    // Calculate power contributions to the bus (only inflows)
+    const contributions: PowerContribution[] = [];
+
+    // Solar contribution to bus
+    const solarToBus = energyFlows.find(f => f.from === 'solar' && f.to === 'hub');
+    if (solarToBus && solarToBus.powerWatts > 0) {
+      contributions.push({
+        source: 'solar',
+        watts: solarToBus.powerWatts,
+        color: '#ffa500'
+      });
+    }
+
+    // Grid contribution to bus (import only)
+    const gridToBus = energyFlows.find(f => f.from === 'grid' && f.to === 'hub');
+    if (gridToBus && gridToBus.powerWatts > 0) {
+      contributions.push({
+        source: 'grid',
+        watts: gridToBus.powerWatts,
+        color: '#f44336'
+      });
+    }
+
+    // Battery contribution to bus (discharge only)
+    const batteryToBus = energyFlows.find(f => f.from === 'battery' && f.to === 'hub');
+    if (batteryToBus && batteryToBus.powerWatts > 0) {
+      contributions.push({
+        source: 'battery',
+        watts: batteryToBus.powerWatts,
+        color: '#4caf50'
+      });
+    }
+
+    const totalBusPower = contributions.reduce((sum, c) => sum + c.watts, 0);
+
+    // Update animation times
+    this.busRenderer.updateAnimation(deltaTime);
+    this.sourceFlowRenderer.updateAnimation(deltaTime);
+    this.trunkSankeyRenderer.updateAnimation(deltaTime);
+
+    // Render source flows to bus (and inter-source flows like solar→battery)
+    this.sourceFlowRenderer.renderSourceFlows(energyFlows, updatedSourceNodes, busConfig);
+
+    // Render the energy bus
+    this.busRenderer.renderBus(busConfig, contributions, totalBusPower);
+
+    // Trunk configuration for consumer distribution
+    const trunkConfig: TrunkConfig = {
+      startX: trunkStartX,
+      startY: busY,
+      trunkX: trunkX
+    };
+
+    // Update consumption node positions for horizontal layout
+    const consumerAreaX = width * 0.85;
+    const maxVisibleDevices = 8;
+    const visibleDevices = this.consumptionNodes.filter(
+      d => d.isVisible && d.powerWatts >= 10 && d.id !== 'total_load'
+    );
+    const deviceCount = Math.min(visibleDevices.length, maxVisibleDevices);
+    const deviceSpacing = deviceCount > 1 ? (height * 0.7) / (deviceCount - 1) : 0;
+    const deviceStartY = height * 0.15;
+
+    const updatedConsumptionNodes: ConsumptionDeviceNode[] = this.consumptionNodes.map((node, idx) => {
+      const visibleIdx = visibleDevices.findIndex(d => d.id === node.id);
+      const yPos = visibleIdx >= 0 ? deviceStartY + visibleIdx * deviceSpacing : node.y;
+      return {
+        ...node,
+        x: consumerAreaX,
+        y: yPos,
+        radius: 25
+      };
+    });
+
+    // Render trunk-based consumer flows
+    this.trunkSankeyRenderer.render(
+      trunkConfig,
+      updatedConsumptionNodes,
+      this.categoryNodes,
+      this.collapsedCategories,
+      totalLoad
+    );
+
+    // Render source nodes
+    const batterySOC = this.config.entities?.battery_soc
+      ? this.sensorManager?.getPercentageValue(this.config.entities.battery_soc)
+      : undefined;
+
+    const batteryCapacity = this.config.entities?.battery_capacity
+      ? this.sensorManager?.getPowerValue(this.config.entities.battery_capacity)
+      : undefined;
+
+    for (const source of updatedSourceNodes) {
+      const soc = source.type === 'battery' ? batterySOC : undefined;
+      const capacity = source.type === 'battery' ? batteryCapacity : undefined;
+
+      let hasWarning = false;
+      if (source.type === 'battery' && soc !== undefined && this.config.warnings?.battery_low) {
+        hasWarning = soc < this.config.warnings.battery_low;
+      } else if (source.type === 'grid' && this.config.warnings?.grid_import) {
+        hasWarning = source.powerWatts > this.config.warnings.grid_import;
+      }
+
+      this.nodeRenderer?.renderSourceNode(source, soc, capacity, undefined, hasWarning);
+    }
+
+    // Render consumption nodes
+    for (const device of updatedConsumptionNodes) {
+      if (device.isVisible && device.id !== 'total_load') {
+        const isCategory = this.categoryNodes.has(device.id);
+        const isCollapsed = this.collapsedCategories.has(device.id);
+
+        if (isCategory) {
+          this.nodeRenderer?.renderCategoryNode(device, isCollapsed);
+        } else {
+          this.nodeRenderer?.renderConsumptionNode(device);
         }
       }
     }

@@ -1,15 +1,33 @@
 /**
  * ConfigEditor - Visual configuration editor for Energy Flow Card
  * Following Home Assistant config editor patterns
+ *
+ * Key implementation notes:
+ * 1. Must define static properties for hass and _config for proper reactivity
+ * 2. Must dispatch config-changed events with bubbles:true and composed:true
+ * 3. Must load HA card helpers to use ha-entity-picker and other HA components
  */
 
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { EnergyFlowCardConfig, DeviceConfig, CategoryConfig } from './types';
 
+// Ensure window.customCards exists
+(window as any).customCards = (window as any).customCards || [];
+
 @customElement('energy-flow-card-editor')
 export class EnergyFlowCardEditor extends LitElement {
+  // CRITICAL: Define static properties for Home Assistant integration
+  // This ensures Lit properly reacts to hass and config changes
+  static get properties() {
+    return {
+      hass: { attribute: false },
+      _config: { state: true },
+    };
+  }
+
   @property({ attribute: false }) public hass?: any;
+  @property({ attribute: false }) public lovelace?: any;
   @state() private _config?: EnergyFlowCardConfig;
   @state() private _entities: string[] = [];
   @state() private _selectedTab: 'sources' | 'devices' | 'categories' | 'display' | 'warnings' = 'sources';
@@ -17,8 +35,11 @@ export class EnergyFlowCardEditor extends LitElement {
 
   // setConfig is called by HA when the editor is initialized
   public setConfig(config: EnergyFlowCardConfig): void {
-    console.log('[EnergyFlowCardEditor] setConfig called with:', config);
-    this._config = { ...config };
+    console.log('[EnergyFlowCardEditor] setConfig called with:', JSON.stringify(config, null, 2));
+    // Create a deep copy to avoid mutation issues
+    this._config = JSON.parse(JSON.stringify(config));
+    // Request update to re-render with new config
+    this.requestUpdate();
   }
 
   static styles = css`
@@ -112,8 +133,20 @@ export class EnergyFlowCardEditor extends LitElement {
    */
   connectedCallback(): void {
     super.connectedCallback();
+    console.log('[EnergyFlowCardEditor] connectedCallback - starting initialization');
     this._loadCardHelpers();
     this._loadEntities();
+  }
+
+  /**
+   * Called when properties change - re-load entities when hass becomes available
+   */
+  protected updated(changedProperties: PropertyValues): void {
+    super.updated(changedProperties);
+    if (changedProperties.has('hass') && this.hass) {
+      console.log('[EnergyFlowCardEditor] hass property updated, reloading entities');
+      this._loadEntities();
+    }
   }
 
   /**
@@ -127,6 +160,7 @@ export class EnergyFlowCardEditor extends LitElement {
     if (customElements.get('ha-entity-picker')) {
       console.log('[EnergyFlowCardEditor] ha-entity-picker already loaded');
       this._helpersLoaded = true;
+      this.requestUpdate();
       return;
     }
 
@@ -135,16 +169,53 @@ export class EnergyFlowCardEditor extends LitElement {
       console.log('[EnergyFlowCardEditor] Loading card helpers...');
       const helpers = await (window as any).loadCardHelpers?.();
       if (helpers) {
-        // Create a dummy card to force load all HA components
+        // Create a dummy entities card to force load ha-entity-picker
         console.log('[EnergyFlowCardEditor] Creating dummy card to load HA components...');
-        await helpers.createCardElement({ type: 'entities', entities: [] });
+        const element = await helpers.createCardElement({ type: 'entities', entities: [] });
+        // Wait for element to be defined
+        if (element) {
+          await element.updateComplete;
+        }
         console.log('[EnergyFlowCardEditor] HA components loaded successfully');
         this._helpersLoaded = true;
+        this.requestUpdate();
       } else {
-        console.warn('[EnergyFlowCardEditor] loadCardHelpers not available');
+        console.warn('[EnergyFlowCardEditor] loadCardHelpers not available, trying alternative method');
+        // Alternative: Try to import directly from HA frontend
+        await this._loadEntityPickerDirect();
       }
     } catch (err) {
       console.warn('[EnergyFlowCardEditor] Could not load card helpers:', err);
+      // Try alternative method
+      await this._loadEntityPickerDirect();
+    }
+  }
+
+  /**
+   * Alternative method to load ha-entity-picker directly
+   */
+  private async _loadEntityPickerDirect(): Promise<void> {
+    try {
+      // Try using customElements.whenDefined to wait for it
+      if (!customElements.get('ha-entity-picker')) {
+        console.log('[EnergyFlowCardEditor] Waiting for ha-entity-picker to be defined...');
+        // Set a timeout to prevent infinite waiting
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout waiting for ha-entity-picker')), 5000)
+        );
+        await Promise.race([
+          customElements.whenDefined('ha-entity-picker'),
+          timeout
+        ]).catch(() => {
+          console.warn('[EnergyFlowCardEditor] ha-entity-picker not available, using fallback UI');
+        });
+      }
+      this._helpersLoaded = true;
+      this.requestUpdate();
+    } catch (err) {
+      console.warn('[EnergyFlowCardEditor] Could not load entity picker directly:', err);
+      this._helpersLoaded = true; // Still mark as loaded to show UI
+      this.requestUpdate();
     }
   }
 
@@ -163,23 +234,38 @@ export class EnergyFlowCardEditor extends LitElement {
 
   /**
    * Dispatch config-changed event to Home Assistant
+   * CRITICAL: Must use CustomEvent with bubbles and composed for HA to receive it
    */
   private _configChanged(config: EnergyFlowCardConfig): void {
-    this._config = config;
+    console.log('[EnergyFlowCardEditor] _configChanged called with:', JSON.stringify(config, null, 2));
 
+    // Create a new config object to ensure immutability
+    const newConfig = JSON.parse(JSON.stringify(config));
+    this._config = newConfig;
+
+    // Fire the config-changed event that Home Assistant listens for
     const event = new CustomEvent('config-changed', {
-      detail: { config },
+      detail: { config: newConfig },
       bubbles: true,
       composed: true
     });
+
+    console.log('[EnergyFlowCardEditor] Dispatching config-changed event');
     this.dispatchEvent(event);
+
+    // Force re-render
+    this.requestUpdate();
   }
 
   /**
    * Handle value changes from form inputs
+   * Supports both HA components (value-changed) and native inputs (change/input)
    */
-  private _valueChanged(ev: CustomEvent): void {
-    if (!this._config || !this.hass) {
+  private _valueChanged(ev: Event | CustomEvent): void {
+    ev.stopPropagation();
+
+    if (!this._config) {
+      console.warn('[EnergyFlowCardEditor] _valueChanged called but no config');
       return;
     }
 
@@ -187,21 +273,40 @@ export class EnergyFlowCardEditor extends LitElement {
     const path = target.configValue;
 
     if (!path) {
+      console.warn('[EnergyFlowCardEditor] _valueChanged called but no configValue on target');
       return;
     }
 
-    let value = target.value;
-    if (target.checked !== undefined) {
+    // Get value from various HA component types
+    let value: any;
+
+    // For ha-entity-picker and other HA components that use CustomEvent
+    if ((ev as CustomEvent).detail !== undefined) {
+      value = (ev as CustomEvent).detail?.value ?? target.value;
+    }
+    // For ha-switch and other toggles
+    else if (target.checked !== undefined) {
       value = target.checked;
     }
+    // For ha-select
+    else if (target.selected !== undefined) {
+      value = target.value || target.selected;
+    }
+    // For native inputs
+    else {
+      value = target.value;
+    }
 
-    // Type-safe comparison
+    console.log(`[EnergyFlowCardEditor] _valueChanged: ${path} = ${value}`);
+
+    // Skip if value hasn't changed
     const currentValue = this._getValue(path);
     if (currentValue === value) {
       return;
     }
 
-    const newConfig = { ...this._config };
+    // Create a deep copy of config to avoid mutation
+    const newConfig = JSON.parse(JSON.stringify(this._config));
 
     if (path.includes('.')) {
       // Handle nested paths like 'entities.solar'
@@ -217,7 +322,7 @@ export class EnergyFlowCardEditor extends LitElement {
 
       current[parts[parts.length - 1]] = value;
     } else {
-      // Use type assertion for dynamic property access
+      // Direct property access
       (newConfig as any)[path] = value;
     }
 
@@ -344,14 +449,31 @@ export class EnergyFlowCardEditor extends LitElement {
   }
 
   protected render() {
-    console.log('[EnergyFlowCardEditor] render called, config:', !!this._config, 'hass:', !!this.hass);
+    console.log('[EnergyFlowCardEditor] render called, config:', !!this._config, 'hass:', !!this.hass, 'helpersLoaded:', this._helpersLoaded);
 
     if (!this._config) {
-      return html`<div class="card-config">Loading configuration...</div>`;
+      return html`
+        <div class="card-config" style="padding: 16px;">
+          <div style="color: var(--secondary-text-color);">Loading configuration...</div>
+        </div>
+      `;
     }
 
     if (!this.hass) {
-      return html`<div class="card-config">Waiting for Home Assistant...</div>`;
+      return html`
+        <div class="card-config" style="padding: 16px;">
+          <div style="color: var(--secondary-text-color);">Connecting to Home Assistant...</div>
+        </div>
+      `;
+    }
+
+    // Show loading state while helpers are loading
+    if (!this._helpersLoaded) {
+      return html`
+        <div class="card-config" style="padding: 16px;">
+          <div style="color: var(--secondary-text-color);">Loading editor components...</div>
+        </div>
+      `;
     }
 
     return html`
@@ -359,31 +481,31 @@ export class EnergyFlowCardEditor extends LitElement {
         <div class="tabs">
           <button
             class="tab ${this._selectedTab === 'sources' ? 'active' : ''}"
-            @click=${() => this._selectedTab = 'sources'}
+            @click=${() => { this._selectedTab = 'sources'; this.requestUpdate(); }}
           >
             Energy Sources
           </button>
           <button
             class="tab ${this._selectedTab === 'devices' ? 'active' : ''}"
-            @click=${() => this._selectedTab = 'devices'}
+            @click=${() => { this._selectedTab = 'devices'; this.requestUpdate(); }}
           >
             Devices
           </button>
           <button
             class="tab ${this._selectedTab === 'categories' ? 'active' : ''}"
-            @click=${() => this._selectedTab = 'categories'}
+            @click=${() => { this._selectedTab = 'categories'; this.requestUpdate(); }}
           >
             Categories
           </button>
           <button
             class="tab ${this._selectedTab === 'display' ? 'active' : ''}"
-            @click=${() => this._selectedTab = 'display'}
+            @click=${() => { this._selectedTab = 'display'; this.requestUpdate(); }}
           >
             Display
           </button>
           <button
             class="tab ${this._selectedTab === 'warnings' ? 'active' : ''}"
-            @click=${() => this._selectedTab = 'warnings'}
+            @click=${() => { this._selectedTab = 'warnings'; this.requestUpdate(); }}
           >
             Warnings
           </button>
@@ -399,19 +521,34 @@ export class EnergyFlowCardEditor extends LitElement {
   }
 
   private _renderSourcesTab() {
+    // Check if ha-entity-picker is available
+    const hasEntityPicker = customElements.get('ha-entity-picker');
+
     return html`
       <div class="option">
         <div class="option-label">
           <div>Solar Power</div>
           <div class="secondary">Sensor measuring solar panel output (watts)</div>
         </div>
-        <ha-entity-picker
-          .hass=${this.hass}
-          .value=${this._getValue('entities.solar')}
-          .configValue=${'entities.solar'}
-          @value-changed=${this._valueChanged}
-          allow-custom-entity
-        ></ha-entity-picker>
+        ${hasEntityPicker ? html`
+          <ha-entity-picker
+            .hass=${this.hass}
+            .value=${this._getValue('entities.solar') || ''}
+            .configValue=${'entities.solar'}
+            @value-changed=${this._valueChanged}
+            .includeDomains=${['sensor']}
+            allow-custom-entity
+          ></ha-entity-picker>
+        ` : html`
+          <input
+            type="text"
+            .value=${this._getValue('entities.solar') || ''}
+            .configValue=${'entities.solar'}
+            @change=${this._valueChanged}
+            placeholder="sensor.solar_power"
+            style="width: 200px; padding: 8px;"
+          />
+        `}
       </div>
 
       <div class="option">
@@ -419,13 +556,25 @@ export class EnergyFlowCardEditor extends LitElement {
           <div>Battery Power</div>
           <div class="secondary">Sensor measuring battery charge/discharge (watts)</div>
         </div>
-        <ha-entity-picker
-          .hass=${this.hass}
-          .value=${this._getValue('entities.battery')}
-          .configValue=${'entities.battery'}
-          @value-changed=${this._valueChanged}
-          allow-custom-entity
-        ></ha-entity-picker>
+        ${hasEntityPicker ? html`
+          <ha-entity-picker
+            .hass=${this.hass}
+            .value=${this._getValue('entities.battery') || ''}
+            .configValue=${'entities.battery'}
+            @value-changed=${this._valueChanged}
+            .includeDomains=${['sensor']}
+            allow-custom-entity
+          ></ha-entity-picker>
+        ` : html`
+          <input
+            type="text"
+            .value=${this._getValue('entities.battery') || ''}
+            .configValue=${'entities.battery'}
+            @change=${this._valueChanged}
+            placeholder="sensor.battery_power"
+            style="width: 200px; padding: 8px;"
+          />
+        `}
       </div>
 
       <div class="option">
@@ -433,13 +582,25 @@ export class EnergyFlowCardEditor extends LitElement {
           <div>Battery State of Charge</div>
           <div class="secondary">Sensor showing battery percentage (0-100%)</div>
         </div>
-        <ha-entity-picker
-          .hass=${this.hass}
-          .value=${this._getValue('entities.battery_soc')}
-          .configValue=${'entities.battery_soc'}
-          @value-changed=${this._valueChanged}
-          allow-custom-entity
-        ></ha-entity-picker>
+        ${hasEntityPicker ? html`
+          <ha-entity-picker
+            .hass=${this.hass}
+            .value=${this._getValue('entities.battery_soc') || ''}
+            .configValue=${'entities.battery_soc'}
+            @value-changed=${this._valueChanged}
+            .includeDomains=${['sensor']}
+            allow-custom-entity
+          ></ha-entity-picker>
+        ` : html`
+          <input
+            type="text"
+            .value=${this._getValue('entities.battery_soc') || ''}
+            .configValue=${'entities.battery_soc'}
+            @change=${this._valueChanged}
+            placeholder="sensor.battery_soc"
+            style="width: 200px; padding: 8px;"
+          />
+        `}
       </div>
 
       <div class="option">
@@ -449,9 +610,9 @@ export class EnergyFlowCardEditor extends LitElement {
         </div>
         <ha-textfield
           type="number"
-          .value=${this._getValue('entities.battery_capacity')}
+          .value=${String(this._getValue('entities.battery_capacity') || '')}
           .configValue=${'entities.battery_capacity'}
-          @input=${this._valueChanged}
+          @change=${this._valueChanged}
         ></ha-textfield>
       </div>
 
@@ -460,13 +621,25 @@ export class EnergyFlowCardEditor extends LitElement {
           <div>Grid Power</div>
           <div class="secondary">Sensor measuring grid import/export (watts)</div>
         </div>
-        <ha-entity-picker
-          .hass=${this.hass}
-          .value=${this._getValue('entities.grid')}
-          .configValue=${'entities.grid'}
-          @value-changed=${this._valueChanged}
-          allow-custom-entity
-        ></ha-entity-picker>
+        ${hasEntityPicker ? html`
+          <ha-entity-picker
+            .hass=${this.hass}
+            .value=${this._getValue('entities.grid') || ''}
+            .configValue=${'entities.grid'}
+            @value-changed=${this._valueChanged}
+            .includeDomains=${['sensor']}
+            allow-custom-entity
+          ></ha-entity-picker>
+        ` : html`
+          <input
+            type="text"
+            .value=${this._getValue('entities.grid') || ''}
+            .configValue=${'entities.grid'}
+            @change=${this._valueChanged}
+            placeholder="sensor.grid_power"
+            style="width: 200px; padding: 8px;"
+          />
+        `}
       </div>
     `;
   }
@@ -474,6 +647,7 @@ export class EnergyFlowCardEditor extends LitElement {
   private _renderDevicesTab() {
     const devices = this._config?.devices || [];
     const categories = this._config?.categories || [];
+    const hasEntityPicker = customElements.get('ha-entity-picker');
 
     return html`
       <div class="devices-list">
@@ -483,20 +657,32 @@ export class EnergyFlowCardEditor extends LitElement {
 
             <ha-textfield
               .value=${device.name || ''}
-              @input=${(e: Event) => this._updateDevice(index, 'name', (e.target as any).value)}
+              @change=${(e: Event) => this._updateDevice(index, 'name', (e.target as any).value)}
               label="Name"
             ></ha-textfield>
 
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${device.entity_id}
-              @value-changed=${(e: CustomEvent) => this._updateDevice(index, 'entity_id', e.detail.value)}
-              allow-custom-entity
-            ></ha-entity-picker>
+            ${hasEntityPicker ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${device.entity_id || ''}
+                @value-changed=${(e: CustomEvent) => this._updateDevice(index, 'entity_id', e.detail.value)}
+                .includeDomains=${['sensor']}
+                allow-custom-entity
+              ></ha-entity-picker>
+            ` : html`
+              <input
+                type="text"
+                .value=${device.entity_id || ''}
+                @change=${(e: Event) => this._updateDevice(index, 'entity_id', (e.target as any).value)}
+                placeholder="sensor.device"
+                style="width: 180px; padding: 8px;"
+              />
+            `}
 
             <ha-select
               .value=${device.category || ''}
               @selected=${(e: CustomEvent) => this._updateDevice(index, 'category', (e.target as any).value)}
+              @closed=${(e: Event) => e.stopPropagation()}
               label="Category"
             >
               <mwc-list-item value="">None</mwc-list-item>
@@ -523,6 +709,7 @@ export class EnergyFlowCardEditor extends LitElement {
 
   private _renderCategoriesTab() {
     const categories = this._config?.categories || [];
+    const hasEntityPicker = customElements.get('ha-entity-picker');
 
     return html`
       <div style="margin-bottom: 16px;">
@@ -539,17 +726,28 @@ export class EnergyFlowCardEditor extends LitElement {
 
             <ha-textfield
               .value=${category.name || ''}
-              @input=${(e: Event) => this._updateCategory(index, 'name', (e.target as any).value)}
+              @change=${(e: Event) => this._updateCategory(index, 'name', (e.target as any).value)}
               label="Category Name"
             ></ha-textfield>
 
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${category.circuit_entity || ''}
-              @value-changed=${(e: CustomEvent) => this._updateCategory(index, 'circuit_entity', e.detail.value)}
-              allow-custom-entity
-              label="Circuit Entity (Optional)"
-            ></ha-entity-picker>
+            ${hasEntityPicker ? html`
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${category.circuit_entity || ''}
+                @value-changed=${(e: CustomEvent) => this._updateCategory(index, 'circuit_entity', e.detail.value)}
+                .includeDomains=${['sensor']}
+                allow-custom-entity
+                label="Circuit Entity (Optional)"
+              ></ha-entity-picker>
+            ` : html`
+              <input
+                type="text"
+                .value=${category.circuit_entity || ''}
+                @change=${(e: Event) => this._updateCategory(index, 'circuit_entity', (e.target as any).value)}
+                placeholder="sensor.circuit"
+                style="width: 180px; padding: 8px;"
+              />
+            `}
 
             <mwc-icon-button
               @click=${() => this._removeCategory(index)}
@@ -587,6 +785,7 @@ export class EnergyFlowCardEditor extends LitElement {
           .value=${this._config?.visualization_mode || 'particles'}
           .configValue=${'visualization_mode'}
           @selected=${this._valueChanged}
+          @closed=${(e: Event) => e.stopPropagation()}
         >
           <mwc-list-item value="particles">Animated Particles</mwc-list-item>
           <mwc-list-item value="sankey">Sankey Flow Lines</mwc-list-item>
@@ -613,9 +812,9 @@ export class EnergyFlowCardEditor extends LitElement {
         </div>
         <ha-textfield
           type="number"
-          .value=${this._config?.update_interval || 2000}
+          .value=${String(this._config?.update_interval || 2000)}
           .configValue=${'update_interval'}
-          @input=${this._valueChanged}
+          @change=${this._valueChanged}
           min="500"
           max="10000"
           step="500"
@@ -636,9 +835,9 @@ export class EnergyFlowCardEditor extends LitElement {
         </div>
         <ha-textfield
           type="number"
-          .value=${warnings.battery_low || 20}
+          .value=${String(warnings.battery_low || 20)}
           .configValue=${'warnings.battery_low'}
-          @input=${this._valueChanged}
+          @change=${this._valueChanged}
           min="0"
           max="100"
           step="5"
@@ -652,9 +851,9 @@ export class EnergyFlowCardEditor extends LitElement {
         </div>
         <ha-textfield
           type="number"
-          .value=${warnings.grid_import || 3000}
+          .value=${String(warnings.grid_import || 3000)}
           .configValue=${'warnings.grid_import'}
-          @input=${this._valueChanged}
+          @change=${this._valueChanged}
           min="0"
           max="10000"
           step="100"
